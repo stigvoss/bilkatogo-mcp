@@ -1,7 +1,7 @@
 services:
   bilkatogo-mcp:
-    build: .
-    image: bilkatogo-mcp:latest
+    # Published by CI on every push to main. For a private package: docker login ghcr.io (read:packages token).
+    image: ghcr.io/stigvoss/bilkatogo-mcp:latest
     restart: unless-stopped
     environment:
       # Public hostname the reverse proxy serves this under (Host-header allow-list).
