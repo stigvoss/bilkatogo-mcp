@@ -25,10 +25,11 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
 4. In Pangolin, add a resource pointing at `http://bilkatogo-mcp:8000`, **with Pangolin's own
    authentication turned off** (it is a browser flow that Claude can't complete; this server checks
    the API key itself).
-5. Claude Code:
+5. Claude Code. Keep the key out of shell history and plain-text config by using an environment
+   variable (Claude Code expands `${VAR}` in MCP server config; check with `claude mcp get bilkatogo` that the header shows as expected):
 
-       claude mcp add --transport http bilkatogo https://bilka-mcp.example.com/mcp \
-         --header "Authorization: Bearer $(cat secrets/mcp_api_key)"
+       export BILKATOGO_MCP_KEY="$(cat secrets/mcp_api_key)"    # e.g. from your shell profile
+       claude mcp add-json bilkatogo '{"type":"http","url":"https://bilka-mcp.example.com/mcp","headers":{"Authorization":"Bearer ${BILKATOGO_MCP_KEY}"}}'
 
 ## Configuration
 
@@ -41,6 +42,8 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
 | `BILKATOGO_ALLOWED_HOSTS` | localhost only | Comma-separated Host headers to accept |
 | `BILKATOGO_ALLOWED_ORIGINS` | localhost only | Comma-separated allowed Origins (browser clients) |
 | `BILKATOGO_STORE_ID` | `1666` | Algolia store id for stock/assortment filtering |
+| `BILKATOGO_MAX_QUANTITY` | `20` | Largest quantity a single cart call may set |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxy addresses whose `X-Forwarded-*` headers are trusted |
 | `RATE_LIMIT_PER_MIN` | `120` | Global request limit |
 | `AUTH_FAIL_LIMIT_PER_MIN` | `10` | Failed-auth attempts per minute before everything is refused for a while |
 
@@ -62,3 +65,16 @@ Tools: search_products, get_cart, set_cart_quantity, add_to_cart, clear_cart, li
 get_favourites, get_delivery_date. No checkout.
 
 Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --python 3.12 server.py`
+
+## Security notes
+
+- Product, cart and order text comes from Bilka and is untrusted; tool descriptions tell the model
+  not to follow instructions found in it. `clear_cart` should only run after explicit confirmation.
+- `list_orders` and `get_delivery_date` return trimmed data (no name, address, door or pickup codes).
+- The Bilka session can do more than these tools: treat `secrets/`, the `bilkatogo-data` volume and
+  its backups like a password. Use a password you don't reuse.
+- Every container on the `newt` network can reach this server; prefer a network shared only with newt.
+- The failed-auth limiter is global: repeated bad keys can lock you out for up to a minute.
+- Dependencies come from `requirements.txt` (hash-pinned, exported from `uv.lock`) and the base
+  image is pinned by digest. To update: `uv lock --upgrade`, then
+  `uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt`.

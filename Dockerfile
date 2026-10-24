@@ -1,8 +1,11 @@
-FROM python:3.12-slim
+# Base image pinned by digest (python:3.12-slim). Update deliberately: docker pull, then copy the new digest.
+FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
-RUN pip install --no-cache-dir "mcp>=1.2,<2" "httpx>=0.27" "uvicorn>=0.30"
+# Hash-pinned dependencies exported from uv.lock (regenerate: see README).
+COPY requirements.txt .
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY server.py .
 RUN useradd --system --uid 10001 app && mkdir /data && chown app /data
 VOLUME /data

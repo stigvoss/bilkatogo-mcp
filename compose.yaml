@@ -7,6 +7,9 @@ services:
       # Public hostname Pangolin serves this under (Host-header allow-list).
       BILKATOGO_ALLOWED_HOSTS: "bilka-mcp.example.com"
       BILKATOGO_STORE_ID: "1666"
+      # BILKATOGO_MAX_QUANTITY: "20"
+      # Trust X-Forwarded-* only from the proxy: set to the newt/Pangolin container's IP or subnet.
+      # FORWARDED_ALLOW_IPS: "172.20.0.0/16"
       MCP_API_KEY_FILE: /run/secrets/mcp_api_key
       # Bilka login: provide the pasted token, or email + password (or both). Each is optional,
       # but at least one is needed the first time. Once the server has logged in it remembers
@@ -24,6 +27,7 @@ services:
     networks:
       - newt
     # No ports: Pangolin/newt reaches the container at http://bilkatogo-mcp:8000 over the network.
+    # Prefer a network shared only with newt: every container on `newt` can reach this server.
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
