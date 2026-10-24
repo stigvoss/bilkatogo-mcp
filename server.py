@@ -1,0 +1,303 @@
+"""BilkaToGo MCP server (single user, API-key protected).
+
+The Bilka account is fixed by configuration: the Gigya ``login_token`` comes from
+``BILKATOGO_LOGIN_TOKEN`` (or ``BILKATOGO_LOGIN_TOKEN_FILE``). Clients authenticate to this
+server with ``Authorization: Bearer <MCP_API_KEY>``. The server exchanges the login token for a
+short-lived JWT (Gigya ``accounts.getJWT``) and calls the BilkaToGo API with it in the
+``jwt_token`` header. No cookies; the only state is the cached JWT.
+
+Unofficial API: it is the one the bilkatogo.dk web shop uses and can change without notice.
+"""
+import hmac
+import os
+import time
+from collections import deque
+
+import httpx
+import uvicorn
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+from starlette.requests import Request
+from starlette.responses import JSONResponse, PlainTextResponse
+
+GIGYA_API_KEY = "3_tA6BbV434FQqN73HnUG1KA3qFv8KiG4OqLu9eWPh7sKRqRizH5Vfv5Larmgrb4I2"
+GIGYA_URL = "https://accounts.eu1.gigya.com/accounts.getJWT"
+SHOP = "https://api.bilkatogo.dk/api/shop"
+ALGOLIA_URL = "https://F9VBJLR1BK-dsn.algolia.net/1/indexes/prod_BILKATOGO_PRODUCTS/query"
+ALGOLIA_HEADERS = {
+    "x-algolia-application-id": "F9VBJLR1BK",
+    # Public search-only key that the web shop ships to every browser.
+    "x-algolia-api-key": "1deaf41c87e729779f7695c00f190cc9",
+}
+JWT_REFRESH_MARGIN = 300
+JWT_LIFETIME = 86400
+
+
+def _secret(name: str) -> str:
+    """Read a secret from NAME or from the file named by NAME_FILE (Docker/Compose secrets)."""
+    path = os.environ.get(f"{name}_FILE")
+    if path:
+        with open(path) as f:
+            return f.read().strip()
+    return os.environ.get(name, "").strip()
+
+
+LOGIN_TOKEN = _secret("BILKATOGO_LOGIN_TOKEN")
+API_KEY = _secret("MCP_API_KEY")
+STORE_ID = os.environ.get("BILKATOGO_STORE_ID", "1666")
+RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "120"))
+AUTH_FAIL_LIMIT_PER_MIN = int(os.environ.get("AUTH_FAIL_LIMIT_PER_MIN", "10"))
+
+mcp = FastMCP(
+    "bilkatogo",
+    host=os.environ.get("HOST", "0.0.0.0"),
+    port=int(os.environ.get("PORT", "8000")),
+    # Host-header allow-list (DNS-rebinding protection). Pangolin forwards the public hostname,
+    # so list it: BILKATOGO_ALLOWED_HOSTS="bilka-mcp.example.com".
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"]
+        + [h for h in os.environ.get("BILKATOGO_ALLOWED_HOSTS", "").split(",") if h],
+        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"]
+        + [o for o in os.environ.get("BILKATOGO_ALLOWED_ORIGINS", "").split(",") if o],
+    ),
+)
+
+_client = httpx.AsyncClient(timeout=20, headers={"User-Agent": "bilkatogo-mcp/0.2"})
+_jwt: tuple[str, float] | None = None
+
+
+class AuthError(Exception):
+    pass
+
+
+async def _get_jwt(force: bool = False) -> str:
+    global _jwt
+    if not force and _jwt and _jwt[1] > time.time():
+        return _jwt[0]
+    resp = await _client.post(
+        GIGYA_URL,
+        params={
+            "apiKey": GIGYA_API_KEY,
+            "httpStatusCodes": "true",
+            "login_token": LOGIN_TOKEN,
+            "expiration": JWT_LIFETIME,
+        },
+    )
+    data = resp.json()
+    if resp.status_code != 200 or not data.get("id_token"):
+        raise AuthError(
+            f"Gigya rejected BILKATOGO_LOGIN_TOKEN (errorCode {data.get('errorCode')}); "
+            "it has probably expired. Sign in again on bilkatogo.dk and update the token."
+        )
+    _jwt = (data["id_token"], time.time() + JWT_LIFETIME - JWT_REFRESH_MARGIN)
+    return _jwt[0]
+
+
+async def _shop(path: str, params: dict | None = None) -> dict:
+    for attempt in (1, 2):
+        jwt = await _get_jwt(force=attempt == 2)
+        resp = await _client.get(
+            f"{SHOP}/{path}", params={"u": "w", **(params or {})}, headers={"jwt_token": jwt}
+        )
+        data = resp.json()
+        # An unauthenticated call still answers 200 with {"msg": ..., "code": ...} and no uid/tid.
+        if resp.status_code != 401 and not ("code" in data and "msg" in data):
+            return data
+    raise AuthError(f"BilkaToGo rejected the session: {data.get('msg')}")
+
+
+def _kr(ore: int | None) -> float | None:
+    return None if ore is None else round(ore / 100, 2)
+
+
+def _product(hit: dict) -> dict:
+    return {
+        "product_id": hit.get("id") or hit.get("objectID"),
+        "name": hit.get("name"),
+        "brand": hit.get("brand"),
+        "size": hit.get("netcontent"),
+        "price": _kr(int(hit["sales_price"])) if hit.get("sales_price") else None,
+        "unit_price": _kr(int(hit["unitOfMeasurePrice"])) if hit.get("unitOfMeasurePrice") else None,
+        "unit": hit.get("unitOfMeasurePriceUnits"),
+        "on_offer": bool(hit.get("cpOffer") == "true" or hit.get("isInOffer") or hit.get("is_multibuy")),
+        "offer": hit.get("cpOfferTitle") or hit.get("multibuy_offer_description") or None,
+        "in_stock": bool(hit.get("isInStock")),
+        "category": hit.get("deepestCategoryPath"),
+    }
+
+
+def _cart(data: dict) -> dict:
+    lines = []
+    for group in data.get("lines", []):
+        for entry in group.get("lines", []):
+            for ol in entry.get("orderlines", []):
+                p = ol.get("product", {})
+                lines.append(
+                    {
+                        "product_id": p.get("id"),
+                        "name": p.get("name"),
+                        "quantity": ol.get("quantity"),
+                        "unit_price": _kr(ol.get("unitprice")),
+                        "line_total": _kr(ol.get("amount")),
+                        "unavailable_reason": ol.get("unavailable_reason") or None,
+                    }
+                )
+    stat = data.get("stat", {})
+    return {
+        "lines": lines,
+        "total": _kr(stat.get("price")),
+        "product_total": _kr(stat.get("prod_price")),
+        "delivery_price": _kr(stat.get("delivery_price")),
+        "minimum_left": _kr(stat.get("minimum_left")),
+        "messages": data.get("messages", []),
+    }
+
+
+@mcp.tool()
+async def search_products(query: str, limit: int = 10, only_in_stock: bool = True) -> list[dict]:
+    """Search the BilkaToGo catalogue. Prices are in DKK."""
+    filters = f"isInAssortmentIn:{STORE_ID} AND nonsearchable:false"
+    if only_in_stock:
+        filters += f" AND inStockStore:{STORE_ID}"
+    resp = await _client.post(
+        ALGOLIA_URL,
+        headers=ALGOLIA_HEADERS,
+        json={
+            "query": query,
+            "hitsPerPage": max(1, min(limit, 50)),
+            "attributesToRetrieve": ["*"],
+            "filters": filters,
+        },
+    )
+    resp.raise_for_status()
+    return [_product(h) for h in resp.json().get("hits", [])]
+
+
+@mcp.tool()
+async def get_cart() -> dict:
+    """Show the current cart with totals in DKK."""
+    return _cart(await _shop("v6/Cart", {"extra": "deliveryAddress,deliveryDate"}))
+
+
+@mcp.tool()
+async def set_cart_quantity(product_id: int, quantity: int) -> dict:
+    """Set the cart quantity of a product to an absolute number (0 removes it)."""
+    if quantity < 0:
+        raise ValueError("quantity must be >= 0")
+    data = await _shop(
+        "v6/ChangeLineCount", {"productId": product_id, "count": quantity, "fullCart": 0}
+    )
+    return {
+        "product_id": data.get("productId"),
+        "quantity": data.get("productAmount"),
+        "unit_price": _kr(data.get("productUnitPrice")),
+        "cart_item_count": data.get("unitCount"),
+        "cart_total": _kr(data.get("sum")),
+        "message": data.get("message") or None,
+    }
+
+
+@mcp.tool()
+async def add_to_cart(product_id: int, quantity: int) -> dict:
+    """Add `quantity` units of a product on top of what is already in the cart."""
+    current = 0
+    for line in _cart(await _shop("v6/Cart"))["lines"]:
+        if str(line["product_id"]) == str(product_id):
+            current += int(line["quantity"] or 0)
+    return await set_cart_quantity(product_id, current + quantity)
+
+
+@mcp.tool()
+async def clear_cart() -> dict:
+    """Remove everything from the cart."""
+    await _shop("v6/EmptyCart")
+    return _cart(await _shop("v6/Cart"))
+
+
+@mcp.tool()
+async def list_orders(limit: int = 5, offset: int = 0) -> dict:
+    """List previous orders (raw order summaries from BilkaToGo)."""
+    data = await _shop(
+        "v7/OrderHistory",
+        {"limit": limit, "offset": offset, "muah": 1, "ordertype": "dibs,pgw"},
+    )
+    return {"total": data.get("total"), "orders": data.get("orders", [])}
+
+
+@mcp.tool()
+async def get_favourites() -> list:
+    """List favourite products."""
+    return (await _shop("v3/GetFavs", {"grouped": "false"})).get("favourites", [])
+
+
+@mcp.tool()
+async def get_delivery_date() -> dict:
+    """Show the delivery/pickup slot currently selected for the cart."""
+    return await _shop("v3/GetDeliveryDate")
+
+
+@mcp.custom_route("/healthz", methods=["GET"])
+async def healthz(_: Request) -> PlainTextResponse:
+    return PlainTextResponse("ok")
+
+
+class ApiKeyMiddleware:
+    """Pure-ASGI gate: constant-time Bearer check, a global rate limit and a failure limiter."""
+
+    def __init__(self, app):
+        self.app = app
+        self._hits: deque[float] = deque()
+        self._fails: deque[float] = deque()
+
+    @staticmethod
+    def _over(window: deque, limit: int, count: bool) -> bool:
+        now = time.monotonic()
+        while window and window[0] < now - 60:
+            window.popleft()
+        if len(window) >= limit:
+            return True
+        if count:
+            window.append(now)
+        return False
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["path"] == "/healthz":
+            return await self.app(scope, receive, send)
+        auth = dict(scope["headers"]).get(b"authorization", b"").decode("latin-1")
+        presented = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+        if self._over(self._fails, AUTH_FAIL_LIMIT_PER_MIN, count=False) or self._over(
+            self._hits, RATE_LIMIT_PER_MIN, count=True
+        ):
+            response = JSONResponse({"error": "rate limited"}, status_code=429)
+        elif not hmac.compare_digest(presented.encode(), API_KEY.encode()):
+            self._over(self._fails, AUTH_FAIL_LIMIT_PER_MIN, count=True)
+            response = JSONResponse(
+                {"error": "unauthorized"},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        else:
+            return await self.app(scope, receive, send)
+        await response(scope, receive, send)
+
+
+def main() -> None:
+    missing = [n for n, v in (("BILKATOGO_LOGIN_TOKEN", LOGIN_TOKEN), ("MCP_API_KEY", API_KEY)) if not v]
+    if missing:
+        raise SystemExit(f"Missing configuration: {', '.join(missing)} (or the *_FILE variants)")
+    if len(API_KEY) < 24:
+        raise SystemExit("MCP_API_KEY is too short; use at least 24 random characters")
+    app = ApiKeyMiddleware(mcp.streamable_http_app())
+    uvicorn.run(
+        app,
+        host=mcp.settings.host,
+        port=mcp.settings.port,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+        log_level=os.environ.get("LOG_LEVEL", "info"),
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,31 @@
+services:
+  bilkatogo-mcp:
+    build: .
+    image: bilkatogo-mcp:latest
+    restart: unless-stopped
+    environment:
+      # Public hostname Pangolin serves this under (Host-header allow-list).
+      BILKATOGO_ALLOWED_HOSTS: "bilka-mcp.example.com"
+      BILKATOGO_STORE_ID: "1666"
+      BILKATOGO_LOGIN_TOKEN_FILE: /run/secrets/bilkatogo_login_token
+      MCP_API_KEY_FILE: /run/secrets/mcp_api_key
+    secrets:
+      - bilkatogo_login_token
+      - mcp_api_key
+    networks:
+      - newt
+    # No ports: Pangolin/newt reaches the container at http://bilkatogo-mcp:8000 over the network.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+secrets:
+  bilkatogo_login_token:
+    file: ./secrets/bilkatogo_login_token
+  mcp_api_key:
+    file: ./secrets/mcp_api_key
+
+networks:
+  newt:
+    external: true
+    name: newt   # change to the name of the Docker network your newt container is on
