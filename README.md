@@ -7,9 +7,9 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
 - The last working token is remembered in `/data/session.json` (a volume), so the credentials can
   be removed from the config after the first successful login.
 - Clients send `Authorization: Bearer <MCP_API_KEY>`.
-- `/healthz` is unauthenticated (for Docker/Pangolin health checks).
+- `/healthz` is unauthenticated (for container and reverse-proxy health checks).
 
-## Docker Compose (behind Pangolin / newt)
+## Docker Compose (behind a reverse proxy)
 
 1. Create the secrets (they stay out of the image and out of `docker inspect`):
 
@@ -19,12 +19,13 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
        pbpaste > secrets/bilkatogo_login_token
        chmod 600 secrets/*
 
-2. Edit `compose.yaml`: set `BILKATOGO_ALLOWED_HOSTS` to your public hostname and the `newt`
-   network name to the Docker network your newt container is on.
+2. Edit `compose.yaml`: set `BILKATOGO_ALLOWED_HOSTS` to your public hostname, and make sure the
+   container shares a Docker network with your reverse proxy or tunnel (`PROXY_NETWORK`, default
+   `proxy`; create it with `docker network create proxy` or point it at an existing one).
 3. `docker compose up -d --build`
-4. In Pangolin, add a resource pointing at `http://bilkatogo-mcp:8000`, **with Pangolin's own
-   authentication turned off** (it is a browser flow that Claude can't complete; this server checks
-   the API key itself).
+4. Point your reverse proxy or tunnel at `http://bilkatogo-mcp:8000` and terminate TLS there. If the
+   proxy has its own login (SSO, basic auth, a PIN page), turn it off for this route: those are
+   browser flows that MCP clients can't complete, and this server checks the API key itself.
 5. Claude Code. Keep the key out of shell history and plain-text config by using an environment
    variable (Claude Code expands `${VAR}` in MCP server config; check with `claude mcp get bilkatogo` that the header shows as expected):
 
@@ -73,7 +74,8 @@ Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --py
 - `list_orders` and `get_delivery_date` return trimmed data (no name, address, door or pickup codes).
 - The Bilka session can do more than these tools: treat `secrets/`, the `bilkatogo-data` volume and
   its backups like a password. Use a password you don't reuse.
-- Every container on the `newt` network can reach this server; prefer a network shared only with newt.
+- Every container on the shared proxy network can reach this server; prefer a network shared only
+  with the proxy.
 - The failed-auth limiter is global: repeated bad keys can lock you out for up to a minute.
 - The image installs exactly what `uv.lock` pins (`uv sync --locked`), and both base images are
   pinned by digest. Dependabot opens weekly PRs for Python packages, Docker images and GitHub

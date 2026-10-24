@@ -4,11 +4,11 @@ services:
     image: bilkatogo-mcp:latest
     restart: unless-stopped
     environment:
-      # Public hostname Pangolin serves this under (Host-header allow-list).
+      # Public hostname the reverse proxy serves this under (Host-header allow-list).
       BILKATOGO_ALLOWED_HOSTS: "bilka-mcp.example.com"
       BILKATOGO_STORE_ID: "1666"
       # BILKATOGO_MAX_QUANTITY: "20"
-      # Trust X-Forwarded-* only from the proxy: set to the newt/Pangolin container's IP or subnet.
+      # Trust X-Forwarded-* only from the proxy: set to the proxy container's IP or subnet.
       # FORWARDED_ALLOW_IPS: "172.20.0.0/16"
       MCP_API_KEY_FILE: /run/secrets/mcp_api_key
       # Bilka login: provide the pasted token, or email + password (or both). Each is optional,
@@ -25,9 +25,10 @@ services:
     volumes:
       - bilkatogo-data:/data
     networks:
-      - newt
-    # No ports: Pangolin/newt reaches the container at http://bilkatogo-mcp:8000 over the network.
-    # Prefer a network shared only with newt: every container on `newt` can reach this server.
+      - proxy
+    # No ports: the reverse proxy or tunnel reaches the container at http://bilkatogo-mcp:8000 over
+    # the shared network. Prefer a network shared only with the proxy: every container on it can
+    # reach this server.
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -46,6 +47,6 @@ secrets:
   #   file: ./secrets/bilkatogo_password
 
 networks:
-  newt:
+  proxy:
     external: true
-    name: newt   # change to the name of the Docker network your newt container is on
+    name: ${PROXY_NETWORK:-proxy}   # the Docker network your reverse proxy or tunnel is on
