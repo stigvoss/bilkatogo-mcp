@@ -2,7 +2,10 @@
 
 Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), protected by an API key.
 
-- The Bilka account is fixed by config: a Gigya `login_token`.
+- The Bilka account is fixed by config. It logs in with a pasted Gigya `login_token`, with
+  email + password, or both; each is optional.
+- The last working token is remembered in `/data/session.json` (a volume), so the credentials can
+  be removed from the config after the first successful login.
 - Clients send `Authorization: Bearer <MCP_API_KEY>`.
 - `/healthz` is unauthenticated (for Docker/Pangolin health checks).
 
@@ -31,7 +34,9 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BILKATOGO_LOGIN_TOKEN` / `_FILE` | required | Gigya login_token of the Bilka account |
+| `BILKATOGO_LOGIN_TOKEN` / `_FILE` | optional | Gigya login_token pasted from the browser |
+| `BILKATOGO_EMAIL` / `_FILE`, `BILKATOGO_PASSWORD` / `_FILE` | optional | Enables automatic re-login when the token is rejected |
+| `BILKATOGO_STATE_FILE` | `/data/session.json` | Where the working token is remembered |
 | `MCP_API_KEY` / `_FILE` | required | API key clients must send (min 24 chars) |
 | `BILKATOGO_ALLOWED_HOSTS` | localhost only | Comma-separated Host headers to accept |
 | `BILKATOGO_ALLOWED_ORIGINS` | localhost only | Comma-separated allowed Origins (browser clients) |
@@ -39,8 +44,19 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
 | `RATE_LIMIT_PER_MIN` | `120` | Global request limit |
 | `AUTH_FAIL_LIMIT_PER_MIN` | `10` | Failed-auth attempts per minute before everything is refused for a while |
 
-When the login_token expires the tools fail with a message saying so; sign in again on
-bilkatogo.dk, replace `secrets/bilkatogo_login_token` and `docker compose restart`.
+At least one login source is needed the first time (token, or email + password). Order tried:
+saved token, then `BILKATOGO_LOGIN_TOKEN`, then email/password. If all fail, the tools return an
+error saying so.
+
+### Log in once, then remove the credentials
+
+    docker compose run --rm bilkatogo-mcp python server.py --check-login
+
+Prints `OK: authenticated via …` or `FAILED: …` (never a secret) and saves the token to the data
+volume. After that you can remove the email/password (or token) secrets from `compose.yaml` and
+`secrets/`. If the saved token later expires and no credentials are configured, provide a fresh
+token or credentials again. The password, if you configure one, sits in `secrets/`; use a
+password you don't reuse elsewhere.
 
 Tools: search_products, get_cart, set_cart_quantity, add_to_cart, clear_cart, list_orders,
 get_favourites, get_delivery_date. No checkout.

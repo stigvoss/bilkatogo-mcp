@@ -7,11 +7,20 @@ services:
       # Public hostname Pangolin serves this under (Host-header allow-list).
       BILKATOGO_ALLOWED_HOSTS: "bilka-mcp.example.com"
       BILKATOGO_STORE_ID: "1666"
-      BILKATOGO_LOGIN_TOKEN_FILE: /run/secrets/bilkatogo_login_token
       MCP_API_KEY_FILE: /run/secrets/mcp_api_key
+      # Bilka login: provide the pasted token, or email + password (or both). Each is optional,
+      # but at least one is needed the first time. Once the server has logged in it remembers
+      # the token in the data volume, so you can remove them afterwards.
+      BILKATOGO_LOGIN_TOKEN_FILE: /run/secrets/bilkatogo_login_token
+      # BILKATOGO_EMAIL_FILE: /run/secrets/bilkatogo_email
+      # BILKATOGO_PASSWORD_FILE: /run/secrets/bilkatogo_password
     secrets:
-      - bilkatogo_login_token
       - mcp_api_key
+      - bilkatogo_login_token
+      # - bilkatogo_email
+      # - bilkatogo_password
+    volumes:
+      - bilkatogo-data:/data
     networks:
       - newt
     # No ports: Pangolin/newt reaches the container at http://bilkatogo-mcp:8000 over the network.
@@ -19,11 +28,18 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
+volumes:
+  bilkatogo-data:
+
 secrets:
-  bilkatogo_login_token:
-    file: ./secrets/bilkatogo_login_token
   mcp_api_key:
     file: ./secrets/mcp_api_key
+  bilkatogo_login_token:
+    file: ./secrets/bilkatogo_login_token
+  # bilkatogo_email:
+  #   file: ./secrets/bilkatogo_email
+  # bilkatogo_password:
+  #   file: ./secrets/bilkatogo_password
 
 networks:
   newt:

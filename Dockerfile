@@ -4,7 +4,8 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 RUN pip install --no-cache-dir "mcp>=1.2,<2" "httpx>=0.27" "uvicorn>=0.30"
 COPY server.py .
-RUN useradd --system --uid 10001 app
+RUN useradd --system --uid 10001 app && mkdir /data && chown app /data
+VOLUME /data
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
