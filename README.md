@@ -40,12 +40,18 @@ services:
       BILKATOGO_ALLOWED_HOSTS: "bilka-mcp.example.com"   # public hostname of the proxy route
       MCP_API_KEY_FILE: /run/secrets/mcp_api_key
       BILKATOGO_LOGIN_TOKEN_FILE: /run/secrets/bilkatogo_login_token
-    secrets: [mcp_api_key, bilkatogo_login_token]
-    volumes: [bilkatogo-data:/data]
-    networks: [proxy]
+    secrets:
+      - mcp_api_key
+      - bilkatogo_login_token
+    volumes:
+      - bilkatogo-data:/data
+    networks:
+      - proxy
     read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
 
 volumes:
   bilkatogo-data:
