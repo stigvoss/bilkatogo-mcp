@@ -9,7 +9,58 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
 - Clients send `Authorization: Bearer <MCP_API_KEY>`.
 - `/healthz` is unauthenticated (for container and reverse-proxy health checks).
 
+## Docker
+
+The image is published to GHCR by CI on every push to `main` and is public, so no login is needed to pull it.
+
+    docker run -d --name bilkatogo-mcp --restart unless-stopped \
+      --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+      -p 127.0.0.1:8000:8000 -v bilkatogo-data:/data \
+      -e MCP_API_KEY="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
+      -e BILKATOGO_LOGIN_TOKEN="<localStorage.getItem(\"auth\") from bilkatogo.dk>" \
+      -e BILKATOGO_ALLOWED_HOSTS="bilka-mcp.example.com" \
+      ghcr.io/stigvoss/bilkatogo-mcp:latest
+
+Note the generated key (`docker inspect` shows it, and so does the login token; use `-e MCP_API_KEY_FILE`
+and `-e BILKATOGO_LOGIN_TOKEN_FILE` with mounted files to avoid that). The server is then at
+`http://127.0.0.1:8000/mcp`, with an unauthenticated `/healthz`. To build locally instead:
+`docker build -t bilkatogo-mcp .` and use that image name.
+
 ## Docker Compose (behind a reverse proxy)
+
+Streamable HTTP at `/mcp`. A minimal `compose.yaml` (the one in this repo is the same, with comments
+and the optional email/password secrets):
+
+```yaml
+services:
+  bilkatogo-mcp:
+    image: ghcr.io/stigvoss/bilkatogo-mcp:latest
+    restart: unless-stopped
+    environment:
+      BILKATOGO_ALLOWED_HOSTS: "bilka-mcp.example.com"   # public hostname of the proxy route
+      MCP_API_KEY_FILE: /run/secrets/mcp_api_key
+      BILKATOGO_LOGIN_TOKEN_FILE: /run/secrets/bilkatogo_login_token
+    secrets: [mcp_api_key, bilkatogo_login_token]
+    volumes: [bilkatogo-data:/data]
+    networks: [proxy]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  bilkatogo-data:
+
+secrets:
+  mcp_api_key:
+    file: ./secrets/mcp_api_key
+  bilkatogo_login_token:
+    file: ./secrets/bilkatogo_login_token
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}   # the Docker network your reverse proxy or tunnel is on
+```
 
 1. Create the secrets (they stay out of the image and out of `docker inspect`):
 
@@ -22,7 +73,7 @@ Unofficial, single-user MCP server for BilkaToGo (streamable HTTP, `/mcp`), prot
 2. Edit `compose.yaml`: set `BILKATOGO_ALLOWED_HOSTS` to your public hostname, and make sure the
    container shares a Docker network with your reverse proxy or tunnel (`PROXY_NETWORK`, default
    `proxy`; create it with `docker network create proxy` or point it at an existing one).
-3. `docker compose up -d --build`
+3. `docker compose pull && docker compose up -d`. To build locally instead, replace `image:` with `build: .`.
 4. Point your reverse proxy or tunnel at `http://bilkatogo-mcp:8000` and terminate TLS there. If the
    proxy has its own login (SSO, basic auth, a PIN page), turn it off for this route: those are
    browser flows that MCP clients can't complete, and this server checks the API key itself.
@@ -79,7 +130,8 @@ Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --py
 - The failed-auth limiter is global: repeated bad keys can lock you out for up to a minute.
 - The image installs exactly what `uv.lock` pins (`uv sync --locked`), and both base images are
   pinned by digest. Dependabot opens weekly PRs for Python packages, Docker images and GitHub
-  Actions; CI (`.github/workflows/ci.yml`) runs lint, tests and a container smoke test on each.
+  Actions; CI (`.github/workflows/ci.yml`) runs lint, tests and a container smoke test on each, and
+  publishes the image to `ghcr.io/stigvoss/bilkatogo-mcp` from `main`.
 
 ## Development
 
