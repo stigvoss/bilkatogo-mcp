@@ -27,7 +27,8 @@ from pathlib import Path
 
 import httpx
 import uvicorn
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
@@ -65,20 +66,19 @@ MAX_QUANTITY = int(os.environ.get("BILKATOGO_MAX_QUANTITY", "20"))
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "120"))
 AUTH_FAIL_LIMIT_PER_MIN = int(os.environ.get("AUTH_FAIL_LIMIT_PER_MIN", "10"))
 
-mcp = FastMCP(
-    "bilkatogo",
-    host=os.environ.get("HOST", "0.0.0.0"),
-    port=int(os.environ.get("PORT", "8000")),
-    # Host-header allow-list (DNS-rebinding protection). a reverse proxy forwards the public hostname,
-    # so list it: BILKATOGO_ALLOWED_HOSTS="bilka-mcp.example.com".
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=True,
-        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"]
-        + [h for h in os.environ.get("BILKATOGO_ALLOWED_HOSTS", "").split(",") if h],
-        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"]
-        + [o for o in os.environ.get("BILKATOGO_ALLOWED_ORIGINS", "").split(",") if o],
-    ),
+HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", "8000"))
+# Host-header allow-list (DNS-rebinding protection). A reverse proxy forwards the public hostname,
+# so list it: BILKATOGO_ALLOWED_HOSTS="bilka-mcp.example.com".
+TRANSPORT_SECURITY = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"]
+    + [h for h in os.environ.get("BILKATOGO_ALLOWED_HOSTS", "").split(",") if h],
+    allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"]
+    + [o for o in os.environ.get("BILKATOGO_ALLOWED_ORIGINS", "").split(",") if o],
 )
+
+mcp = MCPServer("bilkatogo")
 
 # httpx logs full request URLs at INFO; keep them (and anything in them) out of the logs.
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -86,8 +86,9 @@ _client = httpx.AsyncClient(timeout=20, headers={"User-Agent": "bilkatogo-mcp/0.
 _jwt: tuple[str, float] | None = None
 
 
-class AuthError(Exception):
-    pass
+class AuthError(ToolError):
+    """Login problems; a ToolError so the message reaches the model instead of a generic crash text."""
+
 
 
 _auth_lock = asyncio.Lock()
@@ -240,7 +241,7 @@ def _order(order: dict) -> dict:
 
 def _check_quantity(quantity: int) -> None:
     if not 0 <= quantity <= MAX_QUANTITY:
-        raise ValueError(f"quantity must be between 0 and {MAX_QUANTITY}")
+        raise ToolError(f"quantity must be between 0 and {MAX_QUANTITY}")
 
 
 def _cart(data: dict) -> dict:
@@ -432,11 +433,11 @@ def main() -> None:
         raise SystemExit("Missing configuration: MCP_API_KEY (or MCP_API_KEY_FILE)")
     if len(API_KEY) < 24:
         raise SystemExit("MCP_API_KEY is too short; use at least 24 random characters")
-    app = ApiKeyMiddleware(mcp.streamable_http_app())
+    app = ApiKeyMiddleware(mcp.streamable_http_app(transport_security=TRANSPORT_SECURITY, host=HOST))
     uvicorn.run(
         app,
-        host=mcp.settings.host,
-        port=mcp.settings.port,
+        host=HOST,
+        port=PORT,
         proxy_headers=True,
         # Only trust X-Forwarded-* from these addresses (your reverse proxy), never everyone.
         forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "127.0.0.1"),

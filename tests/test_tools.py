@@ -1,4 +1,5 @@
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 pytestmark = pytest.mark.anyio
 
@@ -69,12 +70,12 @@ async def test_delivery_date_has_no_ids(server):
 
 @pytest.mark.parametrize("quantity", [21, -1])
 async def test_set_quantity_out_of_range_is_rejected(server, quantity):
-    with pytest.raises(ValueError):
+    with pytest.raises(ToolError):
         await server.set_cart_quantity(1, quantity)
 
 
 async def test_add_to_cart_over_the_cap_is_rejected(server):
-    with pytest.raises(ValueError):
+    with pytest.raises(ToolError):
         await server.add_to_cart(1, 500)
 
 
