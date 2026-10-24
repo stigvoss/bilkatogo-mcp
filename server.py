@@ -69,7 +69,7 @@ mcp = FastMCP(
     "bilkatogo",
     host=os.environ.get("HOST", "0.0.0.0"),
     port=int(os.environ.get("PORT", "8000")),
-    # Host-header allow-list (DNS-rebinding protection). Pangolin forwards the public hostname,
+    # Host-header allow-list (DNS-rebinding protection). a reverse proxy forwards the public hostname,
     # so list it: BILKATOGO_ALLOWED_HOSTS="bilka-mcp.example.com".
     transport_security=TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
@@ -438,7 +438,7 @@ def main() -> None:
         host=mcp.settings.host,
         port=mcp.settings.port,
         proxy_headers=True,
-        # Only trust X-Forwarded-* from these addresses (the Pangolin/newt proxy), never everyone.
+        # Only trust X-Forwarded-* from these addresses (your reverse proxy), never everyone.
         forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "127.0.0.1"),
         log_level=os.environ.get("LOG_LEVEL", "info"),
     )
