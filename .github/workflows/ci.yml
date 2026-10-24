@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+      - name: Check the lockfile is up to date
+        run: uv lock --check
+      - name: Install
+        run: uv sync --locked --python ${{ matrix.python }}
+      - name: Lint
+        run: uv run ruff check .
+      - name: Test
+        run: uv run pytest
+
+  docker:
+    name: Build image and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          push: false
+          tags: bilkatogo-mcp:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        run: |
+          key=ci-key-0123456789abcdefghijklmnop
+          docker run -d --name smoke --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            -p 8000:8000 -v smoke-data:/data \
+            -e MCP_API_KEY="$key" -e BILKATOGO_LOGIN_TOKEN=dummy bilkatogo-mcp:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/healthz && break
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/healthz)" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/mcp)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $key" \
+            -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            http://127.0.0.1:8000/mcp)" = 200
+      - name: Container logs
+        if: failure()
+        run: docker logs smoke

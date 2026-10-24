@@ -75,6 +75,12 @@ Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --py
   its backups like a password. Use a password you don't reuse.
 - Every container on the `newt` network can reach this server; prefer a network shared only with newt.
 - The failed-auth limiter is global: repeated bad keys can lock you out for up to a minute.
-- Dependencies come from `requirements.txt` (hash-pinned, exported from `uv.lock`) and the base
-  image is pinned by digest. To update: `uv lock --upgrade`, then
-  `uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt`.
+- The image installs exactly what `uv.lock` pins (`uv sync --locked`), and both base images are
+  pinned by digest. Dependabot opens weekly PRs for Python packages, Docker images and GitHub
+  Actions; CI (`.github/workflows/ci.yml`) runs lint, tests and a container smoke test on each.
+
+## Development
+
+    uv sync                 # installs runtime + dev dependencies
+    uv run ruff check .
+    uv run pytest
