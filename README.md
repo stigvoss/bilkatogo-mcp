@@ -106,11 +106,24 @@ networks:
 | `MCP_API_KEY` / `_FILE` | required | API key clients must send (min 24 chars) |
 | `BILKATOGO_ALLOWED_HOSTS` | localhost only | Comma-separated Host headers to accept |
 | `BILKATOGO_ALLOWED_ORIGINS` | localhost only | Comma-separated allowed Origins (browser clients) |
-| `BILKATOGO_STORE_ID` | `1666` | Algolia store id for stock/assortment filtering |
+| `BILKATOGO_STORE_ID` | `1666` | Store id (Bilka Sønderborg) that search results are filtered by; see [Finding your store ID](#finding-your-store-id) |
 | `BILKATOGO_MAX_QUANTITY` | `20` | Largest quantity a single cart call may set |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxy addresses whose `X-Forwarded-*` headers are trusted |
 | `RATE_LIMIT_PER_MIN` | `120` | Global request limit |
 | `AUTH_FAIL_LIMIT_PER_MIN` | `10` | Failed-auth attempts per minute before everything is refused for a while |
+
+### Finding your store ID
+
+`search_products` only returns products that the store is stocking and selling, so set
+`BILKATOGO_STORE_ID` to the store you order from. The default, `1666`, is Bilka Sønderborg. The ID is
+the `sid` of a pickup place, and the list of them needs no login:
+
+    curl -s "https://api.bilkatogo.dk/api/shop/v6/AvailableDeliveryAddresses?u=w&orderByZipcode=1" \
+      | python3 -c 'import sys,json; [print(a["sid"], a["name"]) for a in json.load(sys.stdin)["addresses"]]' | sort -u
+
+Pick the line for your store, for example `1662 Bilka Kolding`. Some pickup points share the ID of the
+store they are served from (`Pickup Fredericia` is also `1662`). This is an unofficial endpoint and the
+list can change.
 
 At least one login source is needed the first time (token, or email + password). Order tried:
 saved token, then `BILKATOGO_LOGIN_TOKEN`, then email/password. If all fail, the tools return an
