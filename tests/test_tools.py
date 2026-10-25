@@ -166,3 +166,105 @@ async def test_cart_still_works_when_the_index_is_down(cart_server):
     assert [line["name"] for line in cart["lines"]] == ["Finvalsede havregryn", "Ukendt vare"]
     assert all("size" not in line for line in cart["lines"])
     assert cart["total"] == 25.9
+
+
+# Real index hits, trimmed to the fields that matter for offers. Prices are in øre; store 1666.
+def _hit(**fields):
+    base = {
+        "id": "1",
+        "name": "Vare",
+        "price": 1000,
+        "sales_price": 1000,
+        "is_multibuy": False,
+        "multibuy_offer_description": "",
+        "isInOffer": [],
+        "cpOffer": False,
+        "cpOfferTitle": "",
+        "cpOfferPrice": 0,
+        "cpOfferAmount": 0,
+        "cpPercentDiscount": 0,
+        "cpOfferFromDate": "",
+        "cpOfferToDate": "",
+    }
+    return {**base, **fields}
+
+
+STORES = [1651, 1661, 1666, 1669]
+
+
+def test_plus_offer_shows_the_member_price_and_dates(server):
+    product = server._product(
+        _hit(
+            name="Ananas", price=2800, sales_price=2800, isInOffer=STORES, cpOffer=True,
+            cpOfferTitle="Salling Princip ananas", cpOfferPrice=2200, cpOfferAmount=1,
+            cpPercentDiscount=21, cpOfferFromDate="2026-10-23", cpOfferToDate="2026-11-06",
+        )
+    )
+    assert product["on_offer"] is True
+    assert product["offer"] == "Salling Princip ananas"
+    assert product["price"] == 28.0 and product["regular_price"] is None
+    assert product["plus_offer"] == {
+        "title": "Salling Princip ananas", "price": 22.0, "amount": 1, "percent_off": 21,
+        "valid_from": "2026-10-23", "valid_to": "2026-11-06",
+    }
+
+
+def test_price_cut_shows_the_regular_price(server):
+    product = server._product(
+        _hit(name="Frilandsæg", price=4095, sales_price=2500, multibuy_offer_description="Skarp pris", isInOffer=STORES)
+    )
+    assert (product["price"], product["regular_price"]) == (25.0, 40.95)
+    assert product["offer"] == "Skarp pris" and product["plus_offer"] is None
+
+
+def test_multibuy_uses_the_mix_text(server):
+    product = server._product(
+        _hit(name="Vådservietter", price=1200, sales_price=1200, is_multibuy=True,
+             multibuy_offer_description="Mix 16 for 139,00", isInOffer=STORES)
+    )
+    assert product["on_offer"] is True and product["offer"] == "Mix 16 for 139,00"
+
+
+def test_plus_offer_title_beats_junk_multibuy_text(server):
+    product = server._product(
+        _hit(price=10900, sales_price=9900, multibuy_offer_description="Se Her", isInOffer=STORES,
+             cpOffer=True, cpOfferTitle="Brystfilet eller inderfilet", cpOfferPrice=8500, cpOfferAmount=1)
+    )
+    assert product["offer"] == "Brystfilet eller inderfilet"
+    assert product["plus_offer"]["price"] == 85.0
+    assert (product["price"], product["regular_price"]) == (99.0, 109.0)
+
+
+def test_ordinary_product_is_not_on_offer(server):
+    product = server._product(_hit(name="Havregryn", isInOffer=[]))
+    assert product["on_offer"] is False and product["offer"] is None and product["plus_offer"] is None
+
+
+def test_offer_at_other_stores_only_does_not_count(server):
+    product = server._product(
+        _hit(isInOffer=[1651, 1652], cpOffer=True, cpOfferTitle="Kun andre butikker", cpOfferPrice=500, cpOfferAmount=1)
+    )
+    assert product["on_offer"] is False and product["offer"] is None and product["plus_offer"] is None
+
+
+async def test_only_offers_adds_the_store_offer_filter(server):
+    import httpx
+
+    seen = []
+
+    def handler(request):
+        seen.append(request.read().decode())
+        return httpx.Response(200, json={"hits": []})
+
+    server._client = _index(handler)
+    await server.search_products("mælk", only_offers=True)
+    await server.search_products("mælk")
+    assert "isInOffer:1666" in seen[0] and "isInOffer" not in seen[1]
+
+
+def test_placeholder_offer_text_is_dropped_but_the_discount_stays_visible(server):
+    product = server._product(
+        _hit(name="Ananas i stykker", price=1795, sales_price=1500, multibuy_offer_description="Se Her", isInOffer=STORES)
+    )
+    assert product["on_offer"] is True and product["offer"] is None
+    assert (product["price"], product["regular_price"]) == (15.0, 17.95)
