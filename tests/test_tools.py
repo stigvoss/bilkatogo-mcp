@@ -82,3 +82,87 @@ async def test_add_to_cart_over_the_cap_is_rejected(server):
 async def test_quantity_at_the_cap_is_allowed(server):
     result = await server.set_cart_quantity(1, 20)
     assert result["quantity"] == 20
+
+
+CART = {
+    "lines": [
+        {
+            "lines": [
+                {
+                    "orderlines": [
+                        {
+                            "product": {"id": 85465, "name": "Finvalsede havregryn"},
+                            "quantity": 2,
+                            "unitprice": 795,
+                            "amount": 1590,
+                        },
+                        {
+                            "product": {"id": 111, "name": "Ukendt vare"},
+                            "quantity": 1,
+                            "unitprice": 1000,
+                            "amount": 1000,
+                        },
+                    ]
+                }
+            ]
+        }
+    ],
+    "stat": {"price": 2590},
+}
+
+
+def _index(handler):
+    import httpx
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.fixture
+def cart_server(server, monkeypatch):
+    async def fake_shop(path, params=None):
+        return CART
+
+    monkeypatch.setattr(server, "_shop", fake_shop)
+    return server
+
+
+async def test_cart_lines_include_size_and_brand(cart_server):
+    import httpx
+
+    seen = {}
+
+    def handler(request):
+        seen["body"] = request.read().decode()
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    None,  # object id 111 sorts first and is unknown to the index
+                    {
+                        "brand": "Salling",
+                        "netcontent": "1 kg",
+                        "unitOfMeasurePrice": 795,
+                        "unitOfMeasurePriceUnits": "Kg.",
+                        "deepestCategoryPath": "Kolonial > Havregryn",
+                    },
+                ]
+            },
+        )
+
+    cart_server._client = _index(handler)
+    cart = await cart_server.get_cart()
+    oats, unknown = cart["lines"]
+    assert (oats["size"], oats["brand"], oats["price_per_unit"], oats["unit"]) == ("1 kg", "Salling", 7.95, "Kg.")
+    assert oats["category"] == "Kolonial > Havregryn"
+    assert "size" not in unknown
+    assert seen["body"].count("objectID") == 2  # one batched request for the whole cart
+
+
+async def test_cart_still_works_when_the_index_is_down(cart_server):
+    import httpx
+
+    cart_server._client = _index(lambda request: httpx.Response(503))
+    cart = await cart_server.get_cart()
+    assert [line["name"] for line in cart["lines"]] == ["Finvalsede havregryn", "Ukendt vare"]
+    assert all("size" not in line for line in cart["lines"])
+    assert cart["total"] == 25.9
