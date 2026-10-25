@@ -80,6 +80,9 @@ networks:
        chmod 600 secrets/*
        printf 'PUID=%s\nPGID=%s\n' "$(id -u)" "$(id -g)" > .env
 
+   See [Creating the login secret files](#creating-the-login-secret-files) for Linux, the optional
+   email + password login and replacing a token.
+
    If you created the `bilkatogo-data` volume before this setting existed, it is owned by uid 10001
    and the saved session can't be written: recreate it (`docker volume rm bilkatogo-data`) or run
    `docker run --rm -v bilkatogo-data:/data alpine chmod 1777 /data` once.
@@ -112,6 +115,50 @@ networks:
 | `RATE_LIMIT_PER_MIN` | `120` | Global request limit |
 | `AUTH_FAIL_LIMIT_PER_MIN` | `10` | Failed-auth attempts per minute before everything is refused for a while |
 
+### Creating the login secret files
+
+The secrets are plain files in `secrets/` that Compose mounts into the container (the `*_FILE`
+variables). You need the API key and at least one Bilka login: a pasted token, email + password, or
+both. They are the keys to your Bilka account, so keep them out of chat, issues and git (`secrets/` and
+`.env` are already in `.gitignore`).
+
+    mkdir -p secrets && chmod 700 secrets
+
+The API key that clients send (at least 24 characters):
+
+    python3 -c "import secrets;print(secrets.token_urlsafe(32))" > secrets/mcp_api_key
+
+The Bilka login token. Sign in on bilkatogo.dk, open the browser's developer console and run
+`localStorage.getItem("auth")`. Copy the value without the surrounding quotes, then save it from the
+clipboard (`pbpaste` on macOS, `xclip -selection clipboard -o` on Linux) or type it at a hidden prompt:
+
+    pbpaste > secrets/bilkatogo_login_token
+    printf 'Token: '; IFS= read -rs token; echo; printf '%s' "$token" > secrets/bilkatogo_login_token; unset token
+
+Optionally your email and password, which let the server log in again by itself when the token
+expires:
+
+    printf '%s' 'you@example.com' > secrets/bilkatogo_email
+    printf 'Password: '; IFS= read -rs pw; echo; printf '%s' "$pw" > secrets/bilkatogo_password; unset pw
+
+The email and password are commented out in `compose.yaml`; to use them, uncomment the three places
+that mention `bilkatogo_email` and `bilkatogo_password` (the `BILKATOGO_*_FILE` variables, the
+service's `secrets:` list and the top-level `secrets:`). Then make the files private and let the
+container read them by running it as their owner:
+
+    chmod 600 secrets/*
+    printf 'PUID=%s\nPGID=%s\n' "$(id -u)" "$(id -g)" > .env
+
+Leading and trailing whitespace in a file is ignored. Check that the login works with
+`docker compose run --rm bilkatogo-mcp python server.py --check-login` (see below). To replace a token
+later, overwrite the file and delete the saved session so the new one is used:
+
+    docker compose run --rm bilkatogo-mcp rm /data/session.json
+
+At least one login source is needed the first time (token, or email + password). Order tried:
+saved token, then `BILKATOGO_LOGIN_TOKEN`, then email/password. If all fail, the tools return an
+error saying so.
+
 ### Finding your store ID
 
 `search_products` only returns products that the store is stocking and selling, so set
@@ -124,10 +171,6 @@ the `sid` of a pickup place, and the list of them needs no login:
 Pick the line for your store, for example `1662 Bilka Kolding`. Some pickup points share the ID of the
 store they are served from (`Pickup Fredericia` is also `1662`). This is an unofficial endpoint and the
 list can change.
-
-At least one login source is needed the first time (token, or email + password). Order tried:
-saved token, then `BILKATOGO_LOGIN_TOKEN`, then email/password. If all fail, the tools return an
-error saying so.
 
 ### Log in once, then remove the credentials
 
