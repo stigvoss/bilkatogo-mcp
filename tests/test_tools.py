@@ -204,7 +204,7 @@ def test_plus_offer_shows_the_member_price_and_dates(server):
     assert product["offer"] == "Salling Princip ananas"
     assert product["price"] == 28.0 and product["regular_price"] is None
     assert product["plus_offer"] == {
-        "title": "Salling Princip ananas", "price": 22.0, "amount": 1, "percent_off": 21,
+        "title": "Salling Princip ananas", "price": 22.0, "amount": 1, "saving": 6.0, "percent_off": 21,
         "valid_from": "2026-10-23", "valid_to": "2026-11-06",
     }
 
@@ -268,3 +268,53 @@ def test_placeholder_offer_text_is_dropped_but_the_discount_stays_visible(server
     )
     assert product["on_offer"] is True and product["offer"] is None
     assert (product["price"], product["regular_price"]) == (15.0, 17.95)
+
+
+def test_price_cut_has_saving_in_kroner_and_percent(server):
+    product = server._product(
+        _hit(name="Frilandsæg", price=4095, sales_price=2500, multibuy_offer_description="Skarp pris", isInOffer=STORES)
+    )
+    assert (product["saving"], product["saving_percent"]) == (15.95, 39)
+
+
+def test_no_saving_without_a_price_cut(server):
+    product = server._product(_hit(price=1000, sales_price=1000))
+    assert (product["saving"], product["saving_percent"], product["regular_price"]) == (None, None, None)
+
+
+def test_mix_offer_is_parsed_and_compared_with_buying_at_the_normal_price(server):
+    product = server._product(
+        _hit(name="Vådservietter", price=1200, sales_price=1200, is_multibuy=True,
+             multibuy_offer_description="Mix 16 for 139,00", isInOffer=STORES)
+    )
+    assert product["mix_offer"] == {
+        "amount": 16, "total_price": 139.0, "price_each": 8.69, "saving": 53.0, "saving_percent": 28,
+    }
+
+
+def test_mix_offer_without_a_saving_still_shows_the_deal(server):
+    product = server._product(
+        _hit(price=250, sales_price=250, is_multibuy=True, multibuy_offer_description="Mix 4 for 10,00", isInOffer=STORES)
+    )
+    assert product["mix_offer"]["saving"] is None and product["mix_offer"]["total_price"] == 10.0
+
+
+def test_multi_item_member_offer_compares_the_total_with_buying_each(server):
+    product = server._product(
+        _hit(name="Ananasdrik", price=2095, sales_price=2095, isInOffer=STORES, cpOffer=True, cpOfferTitle="Scoop",
+             cpOfferPrice=1800, cpOfferAmount=2, cpOriginalPrice=2095, cpPercentDiscount=57)
+    )
+    plus = product["plus_offer"]
+    assert (plus["amount"], plus["price"], plus["saving"], plus["percent_off"]) == (2, 18.0, 23.9, 57)
+
+
+def test_member_offer_percent_is_computed_when_the_shop_gives_none(server):
+    product = server._product(
+        _hit(price=2800, sales_price=2800, isInOffer=STORES, cpOffer=True, cpOfferPrice=2200, cpOfferAmount=1)
+    )
+    assert product["plus_offer"]["percent_off"] == 21
+
+
+def test_products_not_on_offer_have_no_mix_offer(server):
+    product = server._product(_hit(is_multibuy=True, multibuy_offer_description="Mix 4 for 10,00", isInOffer=[1651]))
+    assert product["mix_offer"] is None
