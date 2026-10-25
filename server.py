@@ -51,8 +51,15 @@ def _secret(name: str) -> str:
     """Read a secret from NAME or from the file named by NAME_FILE (Docker/Compose secrets)."""
     path = os.environ.get(f"{name}_FILE")
     if path:
-        with open(path) as f:
-            return f.read().strip()
+        try:
+            with open(path) as f:
+                return f.read().strip()
+        except OSError as exc:
+            raise SystemExit(
+                f"Cannot read {name}_FILE ({path}): {exc.strerror}. The container runs as uid 10001 unless "
+                "compose sets PUID/PGID, so run it as the file's owner (PUID=$(id -u), PGID=$(id -g) in "
+                ".env) rather than loosening the file's mode."
+            ) from exc
     return os.environ.get(name, "").strip()
 
 

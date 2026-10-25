@@ -36,6 +36,7 @@ services:
   bilkatogo-mcp:
     image: ghcr.io/stigvoss/bilkatogo-mcp:latest
     restart: unless-stopped
+    user: "${PUID:-10001}:${PGID:-10001}"   # run as the secret files' owner
     environment:
       BILKATOGO_ALLOWED_HOSTS: "bilka-mcp.example.com"   # public hostname of the proxy route
       MCP_API_KEY_FILE: /run/secrets/mcp_api_key
@@ -68,14 +69,20 @@ networks:
     name: ${PROXY_NETWORK:-proxy}   # the Docker network your reverse proxy or tunnel is on
 ```
 
-1. Create the secrets (they stay out of the image and out of `docker inspect`):
+1. Create the secrets (they stay out of the image and out of `docker inspect`) and tell Compose to
+   run the container as the files' owner, so they can stay private (`600`) instead of being made
+   readable to everyone:
 
        mkdir -p secrets
        python3 -c "import secrets;print(secrets.token_urlsafe(32))" > secrets/mcp_api_key
        # paste the token from the browser console: localStorage.getItem("auth")
        pbpaste > secrets/bilkatogo_login_token
        chmod 600 secrets/*
+       printf 'PUID=%s\nPGID=%s\n' "$(id -u)" "$(id -g)" > .env
 
+   If you created the `bilkatogo-data` volume before this setting existed, it is owned by uid 10001
+   and the saved session can't be written: recreate it (`docker volume rm bilkatogo-data`) or run
+   `docker run --rm -v bilkatogo-data:/data alpine chmod 1777 /data` once.
 2. Edit `compose.yaml`: set `BILKATOGO_ALLOWED_HOSTS` to your public hostname, and make sure the
    container shares a Docker network with your reverse proxy or tunnel (`PROXY_NETWORK`, default
    `proxy`; create it with `docker network create proxy` or point it at an existing one).

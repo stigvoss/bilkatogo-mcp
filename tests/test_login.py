@@ -72,3 +72,9 @@ def test_startup_rejects_email_without_password(load_server):
     server = load_server(BILKATOGO_EMAIL="a@b.c")
     with pytest.raises(SystemExit, match="both"):
         server._check_login_sources()
+
+
+def test_unreadable_secret_file_explains_how_to_fix_it(load_server, tmp_path):
+    missing = tmp_path / "nope"
+    with pytest.raises(SystemExit, match="PUID"):
+        load_server(BILKATOGO_LOGIN_TOKEN_FILE=str(missing))

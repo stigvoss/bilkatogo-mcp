@@ -14,7 +14,9 @@ ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY --from=build /opt/venv /opt/venv
 COPY server.py .
-RUN useradd --system --uid 10001 app && mkdir /data && chown app /data
+# /data holds the saved session. It is sticky and world-writable so the container can also run as
+# another uid (PUID/PGID in compose); the files inside are created 0600 by whoever writes them.
+RUN useradd --system --uid 10001 app && mkdir /data && chown app /data && chmod 1777 /data
 VOLUME /data
 USER app
 EXPOSE 8000
