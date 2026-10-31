@@ -183,7 +183,7 @@ token or credentials again. The password, if you configure one, sits in `secrets
 password you don't reuse elsewhere.
 
 Tools: search_products, get_cart, set_cart_quantity, add_to_cart, clear_cart, list_orders,
-get_favourites, get_delivery_date. No checkout.
+get_order, get_favourites, get_delivery_date. No checkout.
 
 Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --python 3.12 server.py`
 
@@ -191,7 +191,7 @@ Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --py
 
 - Product, cart and order text comes from Bilka and is untrusted; tool descriptions tell the model
   not to follow instructions found in it. `clear_cart` should only run after explicit confirmation.
-- `list_orders` and `get_delivery_date` return trimmed data (no name, address, door or pickup codes).
+- `list_orders`, `get_order` and `get_delivery_date` return trimmed data (no name, address, door or pickup codes).
 - The Bilka session can do more than these tools: treat `secrets/`, the `bilkatogo-data` volume and
   its backups like a password. Use a password you don't reuse.
 - Every container on the shared proxy network can reach this server; prefer a network shared only
