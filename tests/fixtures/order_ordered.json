@@ -1,0 +1,491 @@
+{
+ "order": {
+  "stat": {
+   "price": 67839,
+   "prod_price": 63439,
+   "promo": 250,
+   "packing": 3900,
+   "packaging_price": 500,
+   "specifications": [
+    {
+     "text": "Pakkeservice",
+     "value": 3900
+    },
+    {
+     "text": "Emballage",
+     "value": 500
+    }
+   ]
+  },
+  "orderId": "100000000001",
+  "deliveryDate": "2026-11-01",
+  "deliveryDay": "Søn",
+  "deliveryInterval": {
+   "start": "10:00:00",
+   "end": "12:00:00"
+  },
+  "deliveryAddress": {
+   "recipient_name": "REDACTED-RECIPIENT",
+   "location": "Bilka Testby",
+   "zipCode": "REDACTED-ZIP",
+   "city": "REDACTED-CITY",
+   "floor": null,
+   "door": null,
+   "address": "REDACTED-STREET 1",
+   "youtube_id": "REDACTED-VIDEO",
+   "lat": "REDACTED-LAT",
+   "lng": "REDACTED-LNG",
+   "order_pickup_code": "REDACTED-PICKUPCODE",
+   "facility": 3,
+   "home_delivery": false,
+   "deliveryPointId": "REDACTED-POINT",
+   "deliveryPointText": "REDACTED-POINT-TEXT",
+   "deliveryComment": "REDACTED-DELIVERY-COMMENT",
+   "doorcode": "REDACTED-DOORCODE"
+  },
+  "deliveryMessage": "Søn. 01/11. kl. 10:00 - 12:00",
+  "ordered": {
+   "channel": "Web",
+   "date": "2026-10-31",
+   "time": "14:00:00"
+  },
+  "price": 67839,
+  "status": "Bestilt",
+  "routeplanned": false,
+  "totalProductAmount": 13,
+  "lines": [
+   {
+    "headline": "Services",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 3900,
+        "net_unitprice": 3900,
+        "unitprice": 3900,
+        "sort": 1,
+        "product": {
+         "objectID": 900001,
+         "erpProductID": "900001-EA",
+         "name": "Pakkeservice",
+         "link": "",
+         "article": "900001",
+         "price": 1000,
+         "brand": "",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 0,
+         "unitsOfMeasure": "",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Services"
+          ],
+          "lvl1": [
+           "Services > Levering"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Frugt & grønt",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 900,
+        "net_unitprice": 900,
+        "unitprice": 900,
+        "sort": 1,
+        "product": {
+         "objectID": 900002,
+         "erpProductID": "900002-EA",
+         "name": "Peberfrugter røde",
+         "link": "",
+         "article": "900002",
+         "price": 900,
+         "brand": "",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 1,
+         "unitsOfMeasure": "stk",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Frugt og grønt"
+          ],
+          "lvl1": [
+           "Frugt og grønt > Grønt"
+          ],
+          "lvl2": [
+           "Frugt og grønt > Grønt > Peberfrugt"
+          ]
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     },
+     {
+      "orderlines": [
+       {
+        "quantity": 10,
+        "amount": 2500,
+        "net_unitprice": 250,
+        "unitprice": 250,
+        "sort": 1,
+        "product": {
+         "objectID": 900003,
+         "erpProductID": "900003-EA",
+         "name": "Bananer",
+         "link": "",
+         "article": "900003",
+         "price": 275,
+         "brand": "",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 1,
+         "unitsOfMeasure": "stk",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Frugt og grønt"
+          ],
+          "lvl1": [
+           "Frugt og grønt > Frugt"
+          ],
+          "lvl2": [
+           "Frugt og grønt > Frugt > Banan"
+          ]
+         },
+         "blockedByHoliday": false,
+         "msg": "Mix 10 for 25,00",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Kolonial",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 3495,
+        "net_unitprice": 3495,
+        "unitprice": 3495,
+        "sort": 1,
+        "product": {
+         "objectID": 900004,
+         "erpProductID": "900004-EA",
+         "name": "Cheerios",
+         "link": "",
+         "article": "900004",
+         "price": 3200,
+         "brand": "Nestlé",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 375,
+         "unitsOfMeasure": "g",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Kolonial"
+          ],
+          "lvl1": [
+           "Kolonial > Morgenmad"
+          ],
+          "lvl2": [
+           "Kolonial > Morgenmad > Morgenmadsprodukter"
+          ]
+         },
+         "blockedByHoliday": false,
+         "msg": "Se Her",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Mejeri & køl",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 1000,
+        "net_unitprice": 1000,
+        "unitprice": 1500,
+        "sort": 1,
+        "product": {
+         "objectID": 900005,
+         "erpProductID": "900005-EA",
+         "name": "Yoghurt m. jordbær",
+         "link": "",
+         "article": "900005",
+         "price": 1500,
+         "brand": "Yoggi",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 1,
+         "unitsOfMeasure": "kg",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Mejeri"
+          ],
+          "lvl1": [
+           "Mejeri > Yoghurt"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "Skarp pris",
+         "cpOffer": true,
+         "cpOfferPrice": 1000,
+         "cpOfferAmount": 1,
+         "cpOfferId": 0,
+         "cpOfferMsg": "Plus pris 10,00",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Emballage",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 500,
+        "net_unitprice": 500,
+        "unitprice": 500,
+        "sort": 1,
+        "product": {
+         "objectID": 900006,
+         "erpProductID": "900006-EA",
+         "name": "Papirpose",
+         "link": "",
+         "article": "900006",
+         "price": 1000,
+         "brand": "",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 0,
+         "unitsOfMeasure": "",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Emballage"
+          ],
+          "lvl1": [
+           "Emballage > Til udlevering"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   }
+  ],
+  "name": "REDACTED-NAME",
+  "address": "REDACTED-STREET 1",
+  "zipcity": "REDACTED-ZIPCITY",
+  "pickupzone": {
+   "location": "Bilka Testby",
+   "address": "REDACTED-STREET 1",
+   "order_pickup_code": "REDACTED-PICKUPCODE"
+  },
+  "receipt_content": {
+   "pickup_body": "REDACTED-RECEIPT <b>REDACTED-PHONE</b>"
+  },
+  "warehouse": "Bilka: Testby",
+  "payment_solution": "pgw",
+  "payments": [
+   {
+    "providerId": "nets",
+    "amount": 67839
+   }
+  ],
+  "transact": "REDACTED-TRANSACTION"
+ },
+ "eid": -1,
+ "uid": "REDACTED-USERID",
+ "tid": "REDACTED-TOKENID",
+ "info_object": null
+}

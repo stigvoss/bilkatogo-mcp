@@ -1,0 +1,611 @@
+{
+ "order": {
+  "stat": {
+   "price": 6890,
+   "prod_price": 2490,
+   "promo": 250,
+   "packing": 3900,
+   "packaging_price": 500,
+   "specifications": [
+    {
+     "text": "Pakkeservice",
+     "value": 3900
+    },
+    {
+     "text": "Emballage",
+     "value": 500
+    }
+   ]
+  },
+  "orderId": "100000000002",
+  "deliveryDate": "2026-11-01",
+  "deliveryDay": "Søn",
+  "deliveryInterval": {
+   "start": "10:00:00",
+   "end": "12:00:00"
+  },
+  "deliveryAddress": {
+   "recipient_name": "REDACTED-RECIPIENT",
+   "location": "Bilka Testby",
+   "zipCode": "REDACTED-ZIP",
+   "city": "REDACTED-CITY",
+   "floor": null,
+   "door": null,
+   "address": "REDACTED-STREET 1",
+   "youtube_id": "REDACTED-VIDEO",
+   "lat": "REDACTED-LAT",
+   "lng": "REDACTED-LNG",
+   "order_pickup_code": "REDACTED-PICKUPCODE",
+   "facility": 3,
+   "home_delivery": false,
+   "deliveryPointId": "REDACTED-POINT",
+   "deliveryPointText": "REDACTED-POINT-TEXT",
+   "deliveryComment": "REDACTED-DELIVERY-COMMENT",
+   "doorcode": "REDACTED-DOORCODE"
+  },
+  "deliveryMessage": "Søn. 01/11. kl. 10:00 - 12:00",
+  "ordered": {
+   "channel": "Web",
+   "date": "2026-10-31",
+   "time": "14:00:00"
+  },
+  "price": 6890,
+  "status": "Faktureret",
+  "routeplanned": false,
+  "totalProductAmount": 5,
+  "lines": [
+   {
+    "headline": "Services",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 3900,
+        "net_unitprice": 3900,
+        "unitprice": 3900,
+        "sort": 1,
+        "product": {
+         "objectID": 900001,
+         "erpProductID": "900001-EA",
+         "name": "Pakkeservice",
+         "link": "",
+         "article": "900001",
+         "price": 1000,
+         "brand": "",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 0,
+         "unitsOfMeasure": "",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Services"
+          ],
+          "lvl1": [
+           "Services > Levering"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Kolonial",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 495,
+        "net_unitprice": 495,
+        "unitprice": 495,
+        "sort": 1,
+        "product": {
+         "objectID": 900010,
+         "erpProductID": "900010-EA",
+         "name": "Spaghetti",
+         "link": "",
+         "article": "900010",
+         "price": 495,
+         "brand": "Budget",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 500,
+         "unitsOfMeasure": "g",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Kolonial"
+          ],
+          "lvl1": [
+           "Kolonial > Pasta"
+          ],
+          "lvl2": [
+           "Kolonial > Pasta > Pasta"
+          ]
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Mejeri & køl",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 2,
+        "amount": 0,
+        "net_unitprice": 0,
+        "unitprice": 1000,
+        "sort": 1,
+        "product": {
+         "objectID": 900011,
+         "erpProductID": "900011-EA",
+         "name": "Letmælk",
+         "link": "",
+         "article": "900011",
+         "price": 1000,
+         "brand": "Arla",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 1,
+         "unitsOfMeasure": "l",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Mejeri"
+          ],
+          "lvl1": [
+           "Mejeri > Mælk"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "Udgået",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": true,
+        "tagline": "Mangler",
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Drikkevarer",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 0,
+        "net_unitprice": 0,
+        "unitprice": 1800,
+        "sort": 1,
+        "product": {
+         "objectID": 900012,
+         "erpProductID": "900012-EA",
+         "name": "Cola",
+         "link": "",
+         "article": "900012",
+         "price": 1800,
+         "brand": "Coca-Cola",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 1.5,
+         "unitsOfMeasure": "l",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Drikkevarer"
+          ],
+          "lvl1": [
+           "Drikkevarer > Sodavand"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "Erstattet",
+        "discounts": [],
+        "deposits": [],
+        "replacement": {
+         "quantity": 1,
+         "amount": 1400,
+         "net_unitprice": 1400,
+         "unitprice": 1400,
+         "sort": 1,
+         "product": {
+          "objectID": 900013,
+          "erpProductID": "900013-EA",
+          "name": "Pepsi",
+          "link": "",
+          "article": "900013",
+          "price": 1400,
+          "brand": "Pepsi",
+          "subBrand": "",
+          "countryOfOrigin": [],
+          "units": 1.5,
+          "unitsOfMeasure": "l",
+          "unitsOfMeasurePrice": 0,
+          "unitsOfMeasureOfferPrice": 0,
+          "unitsOfMeasurePriceUnit": "",
+          "properties": [],
+          "attributes": [],
+          "productType": "",
+          "multipromo": 0,
+          "imageGUIDs": {},
+          "categories": {
+           "lvl0": [
+            "Drikkevarer"
+           ],
+           "lvl1": [
+            "Drikkevarer > Sodavand"
+           ],
+           "lvl2": []
+          },
+          "blockedByHoliday": false,
+          "msg": "",
+          "cpOffer": false,
+          "cpOfferPrice": null,
+          "cpOfferAmount": 0,
+          "cpOfferId": 0,
+          "cpOfferMsg": "",
+          "offerMax": 0,
+          "offerMaxDescription": "",
+          "ageCode": 0
+         },
+         "unavailable_reason": "",
+         "discounts": [],
+         "deposits": [],
+         "replacement": null,
+         "returns": [],
+         "pickedCountryOfOrigin": "",
+         "comment": "",
+         "strikethrough": null,
+         "tagline": null,
+         "children": []
+        },
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": true,
+        "tagline": "Erstattet med",
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Brød & kager",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 1500,
+        "net_unitprice": 1500,
+        "unitprice": 1500,
+        "sort": 1,
+        "product": {
+         "objectID": 900014,
+         "erpProductID": "900014-EA",
+         "name": "Rugbrød",
+         "link": "",
+         "article": "900014",
+         "price": 1500,
+         "brand": "Kohberg",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 750,
+         "unitsOfMeasure": "g",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Brød og kager"
+          ],
+          "lvl1": [
+           "Brød og kager > Brød"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [
+         {
+          "quantity": 1,
+          "amount": 1500,
+          "net_unitprice": 1500,
+          "unitprice": 1500,
+          "sort": 1,
+          "product": {
+           "objectID": 900014,
+           "erpProductID": "900014-EA",
+           "name": "Rugbrød",
+           "link": "",
+           "article": "900014",
+           "price": 1500,
+           "brand": "Kohberg",
+           "subBrand": "",
+           "countryOfOrigin": [],
+           "units": 750,
+           "unitsOfMeasure": "g",
+           "unitsOfMeasurePrice": 0,
+           "unitsOfMeasureOfferPrice": 0,
+           "unitsOfMeasurePriceUnit": "",
+           "properties": [],
+           "attributes": [],
+           "productType": "",
+           "multipromo": 0,
+           "imageGUIDs": {},
+           "categories": {
+            "lvl0": [
+             "Brød og kager"
+            ],
+            "lvl1": [
+             "Brød og kager > Brød"
+            ],
+            "lvl2": []
+           },
+           "blockedByHoliday": false,
+           "msg": "",
+           "cpOffer": false,
+           "cpOfferPrice": null,
+           "cpOfferAmount": 0,
+           "cpOfferId": 0,
+           "cpOfferMsg": "",
+           "offerMax": 0,
+           "offerMaxDescription": "",
+           "ageCode": 0
+          },
+          "unavailable_reason": "",
+          "discounts": [],
+          "deposits": [],
+          "replacement": null,
+          "returns": [],
+          "pickedCountryOfOrigin": "",
+          "comment": "",
+          "strikethrough": null,
+          "tagline": null,
+          "children": [],
+          "reason": "Beskadiget"
+         }
+        ],
+        "pickedCountryOfOrigin": "",
+        "comment": "Uden kerner",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   },
+   {
+    "headline": "Emballage",
+    "type": "",
+    "lines": [
+     {
+      "orderlines": [
+       {
+        "quantity": 1,
+        "amount": 500,
+        "net_unitprice": 500,
+        "unitprice": 500,
+        "sort": 1,
+        "product": {
+         "objectID": 900006,
+         "erpProductID": "900006-EA",
+         "name": "Papirpose",
+         "link": "",
+         "article": "900006",
+         "price": 1000,
+         "brand": "",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 0,
+         "unitsOfMeasure": "",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Emballage"
+          ],
+          "lvl1": [
+           "Emballage > Til udlevering"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": null,
+        "tagline": null,
+        "children": []
+       }
+      ],
+      "discounts": []
+     }
+    ]
+   }
+  ],
+  "name": "REDACTED-NAME",
+  "address": "REDACTED-STREET 1",
+  "zipcity": "REDACTED-ZIPCITY",
+  "pickupzone": {
+   "location": "Bilka Testby",
+   "address": "REDACTED-STREET 1",
+   "order_pickup_code": "REDACTED-PICKUPCODE"
+  },
+  "receipt_content": {
+   "pickup_body": "REDACTED-RECEIPT <b>REDACTED-PHONE</b>"
+  },
+  "warehouse": "Bilka: Testby",
+  "payment_solution": "pgw",
+  "payments": [
+   {
+    "providerId": "nets",
+    "amount": 6890
+   }
+  ],
+  "transact": "REDACTED-TRANSACTION",
+  "delivered": true,
+  "orderedPrice": 9690,
+  "packedPrice": 6890
+ },
+ "eid": -1,
+ "uid": "REDACTED-USERID",
+ "tid": "REDACTED-TOKENID",
+ "info_object": null
+}
