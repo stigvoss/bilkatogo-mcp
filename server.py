@@ -246,6 +246,18 @@ def _in_list(hit: dict, field: str) -> bool:
     return str(STORE_ID) in {str(store) for store in hit.get(field) or []}
 
 
+def _unit_price(hit: dict) -> tuple[float | None, str | None]:
+    """Price per kg/l/piece as the shop shows it for this store.
+
+    The top-level unitOfMeasurePrice is worked out from the regular price, so it is too high on a
+    price cut; the store's unitsOfMeasureShowPrice follows the current price.
+    """
+    store = (hit.get("storeData") or {}).get(str(STORE_ID)) or {}
+    ore = store.get("unitsOfMeasureShowPrice") or store.get("unitsOfMeasurePrice") or hit.get("unitOfMeasurePrice")
+    unit = store.get("unitsOfMeasurePriceUnit") or hit.get("unitOfMeasurePriceUnits") or None
+    return (_kr(int(ore)) if ore else None), unit
+
+
 def _on_offer_here(hit: dict) -> bool:
     """The shop's own definition: the product's isInOffer list contains this store."""
     return _in_list(hit, "isInOffer")
@@ -256,6 +268,11 @@ def _product(hit: dict) -> dict:
     sales_ore, regular_ore = (int(sales) if sales else None), (int(regular) if regular else None)
     saving, saving_percent = _saving(regular_ore, sales_ore) if sales_ore and regular_ore else (None, None)
     on_offer = _on_offer_here(hit)
+    unit_price, unit = _unit_price(hit)
+    # Stock is per store, and a product the store does not sell cannot be had even if shelves hold it.
+    in_stock = _in_list(hit, "inStockStore") if "inStockStore" in hit else bool(hit.get("isInStock"))
+    if "isInAssortmentIn" in hit:
+        in_stock = in_stock and _in_list(hit, "isInAssortmentIn")
     # Mix/multibuy text only counts when the product really is a multibuy; otherwise the Plus offer
     # title or a label such as "Skarp pris" is the useful description.
     raw_description = hit.get("multibuy_offer_description")
@@ -292,20 +309,19 @@ def _product(hit: dict) -> dict:
     return {
         "product_id": _pid(hit.get("id") or hit.get("objectID")),
         "name": hit.get("name"),
-        "brand": hit.get("brand"),
+        "brand": hit.get("brand") or None,
         "size": hit.get("netcontent"),
         "price": _kr(sales_ore) if sales_ore else None,
         "regular_price": _kr(regular_ore) if saving else None,
         "saving": saving,
         "saving_percent": saving_percent,
-        "unit_price": _kr(int(hit["unitOfMeasurePrice"])) if hit.get("unitOfMeasurePrice") else None,
-        "unit": hit.get("unitOfMeasurePriceUnits"),
+        "unit_price": unit_price,
+        "unit": unit,
         "on_offer": on_offer,
         "offer": label if on_offer else None,
         "mix_offer": mix_offer,
         "plus_offer": plus_offer,
-        # Stock is per store; the global isInStock flag is only a fallback when the list is missing.
-        "in_stock": _in_list(hit, "inStockStore") if "inStockStore" in hit else bool(hit.get("isInStock")),
+        "in_stock": in_stock,
         "category": hit.get("deepestCategoryPath"),
     }
 
@@ -469,6 +485,7 @@ async def _product_details(product_ids: list) -> dict[str, dict]:
                             "netcontent",
                             "unitOfMeasurePrice",
                             "unitOfMeasurePriceUnits",
+                            f"storeData.{STORE_ID}",  # only this store's slice, not every store's
                             "deepestCategoryPath",
                         ],
                     }
@@ -484,12 +501,12 @@ async def _product_details(product_ids: list) -> dict[str, dict]:
     for object_id, hit in zip(ids, results):
         if not hit:
             continue
-        per_unit = hit.get("unitOfMeasurePrice")
+        per_unit, unit = _unit_price(hit)
         details[object_id] = {
             "brand": hit.get("brand") or None,
             "size": hit.get("netcontent") or None,
-            "price_per_unit": _kr(per_unit) if per_unit else None,
-            "unit": hit.get("unitOfMeasurePriceUnits") or None,
+            "price_per_unit": per_unit,
+            "unit": unit,
             "category": hit.get("deepestCategoryPath") or None,
         }
     return details
@@ -561,7 +578,8 @@ async def get_products(product_ids: list[str | int]) -> list[dict]:
     `price` is what one item costs now (`regular_price`, `saving` and `saving_percent` show a price
     cut), `in_stock` and `sold_here` are for this store (a product the store does not sell has
     sold_here false and cannot be ordered), and `offer` is the best deal for one item: its `price`,
-    what it `requires` (null, "member", or "buy N") and `valid_to`. `plus_offer` and `mix_offer` have
+    what it `requires` (null, "member", or "buy N") and `valid_to`; its `label` is null for a plain
+    price cut that the shop gives no name. `plus_offer` and `mix_offer` have
     the details. An id that no longer exists comes back as {"product_id": ..., "found": false}."""
     ids = [str(i).strip() for i in product_ids]
     if len(ids) > MAX_PRODUCT_IDS:
@@ -609,10 +627,14 @@ async def set_cart_quantity(product_id: int, quantity: int) -> dict:
     data = await _shop(
         "v6/ChangeLineCount", {"productId": product_id, "count": quantity, "fullCart": 0}
     )
+    quantity = data.get("productAmount")
+    # The shop's productUnitPrice is the price of the whole line (all `quantity` items), not of one item.
+    line_total = _kr(data.get("productUnitPrice"))
     return {
-        "product_id": data.get("productId"),
-        "quantity": data.get("productAmount"),
-        "unit_price": _kr(data.get("productUnitPrice")),
+        "product_id": _pid(data.get("productId")),
+        "quantity": quantity,
+        "unit_price": round(line_total / quantity, 2) if line_total is not None and quantity else None,
+        "line_total": line_total,
         "cart_item_count": data.get("unitCount"),
         "cart_total": _kr(data.get("sum")),
         "message": data.get("message") or None,
@@ -659,7 +681,10 @@ async def get_order(order_id: str | int) -> dict:
         raise ToolError("order_id must be the number from list_orders")
     data = await _shop("v7/OrderDetails", {"orderId": order_id})
     if not data.get("order"):
-        raise ToolError(data.get("msg") or "Order not found")
+        raise ToolError(
+            "No order with that id was found for this account; check the id with list_orders."
+            + (f" (The shop says: {data['msg']})" if data.get("msg") else "")
+        )
     return _order_details(data["order"])
 
 

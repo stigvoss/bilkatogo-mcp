@@ -162,8 +162,9 @@ async def test_get_order_rejects_odd_ids(server, bad):
 async def test_unknown_order_is_reported_not_treated_as_a_login_problem(server):
     # The shop answers with msg and code but *your* uid, so this is not an expired session.
     _serve(server, {"msg": "Ordren kunne ikke findes.", "code": None, "eid": 404, "uid": 42})
-    with pytest.raises(ToolError, match="kunne ikke findes"):
+    with pytest.raises(ToolError, match="list_orders") as error:  # says what to do next
         await server.get_order("100000000099")
+    assert "kunne ikke findes" in str(error.value)  # and keeps what the shop said
     assert len(server.requests) == 1  # no pointless second attempt with a fresh login
 
 
