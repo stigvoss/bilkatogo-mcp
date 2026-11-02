@@ -558,3 +558,35 @@ async def test_removing_a_line_has_no_unit_price(server, monkeypatch):
     monkeypatch.setattr(server, "_shop", fake_shop)
     result = await server.set_cart_quantity(85465, 0)
     assert (result["quantity"], result["line_total"], result["unit_price"]) == (0, 0.0, None)
+
+
+async def test_cart_lines_say_which_are_services(cart_server):
+    """The packing fee is a line in the cart (group "Services", category "Services")."""
+    def product(object_id, name, lvl0):
+        return {"objectID": object_id, "name": name, "categories": {"lvl0": [lvl0]}}
+
+    def entry(headline, *products):
+        return {"headline": headline, "lines": [{"orderlines": [
+            {"product": p, "quantity": 1, "unitprice": 1000, "amount": 1000} for p in products]}]}
+
+    async def fake_shop(path, params=None):
+        return {"lines": [
+            entry("Services", product(81474, "Pakkeservice", "Services")),
+            entry("Mejeri & køl", product(85465, "Havregryn", "Kolonial")),
+            entry("Services", {"objectID": 7, "name": "Kun sektion"}),  # only the section says service
+            entry("Andet", product(8, "Kun kategori", "Emballage")),  # only the category says service
+        ], "stat": {}}
+
+    cart_server._shop = fake_shop
+    cart_server._client = _index(lambda request: __import__("httpx").Response(200, json={"results": []}))
+    flags = {line["name"]: line["is_service"] for line in (await cart_server.get_cart())["lines"]}
+    assert flags == {"Pakkeservice": True, "Havregryn": False, "Kun sektion": True, "Kun kategori": True}
+
+
+def test_descriptions_do_not_overclaim_the_order_counts(server):
+    import asyncio
+
+    tools = {t.name: t.description for t in asyncio.run(server.mcp.list_tools())}
+    assert "originally placed" not in tools["get_order"]  # older orders do not keep the undelivered lines
+    assert "as ordered" in tools["list_orders"] and "delivered and invoiced" in tools["list_orders"]
+    assert "is_service" in tools["get_cart"]
