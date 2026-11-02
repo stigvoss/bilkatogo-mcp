@@ -158,6 +158,51 @@ async def test_cart_lines_include_size_and_brand(cart_server):
     assert seen["body"].count("objectID") == 2  # one batched request for the whole cart
 
 
+CART_WITH_OBJECTID = {
+    "lines": [
+        {
+            "lines": [
+                {
+                    "orderlines": [
+                        {"product": {"objectID": 85465, "name": "Havregryn"}, "quantity": 2, "unitprice": 795, "amount": 1590},
+                        {"product": {"objectID": 111, "name": "Mælk"}, "quantity": 1, "unitprice": 1000, "amount": 1000},
+                        {"product": {"objectID": 222, "name": "Smør"}, "quantity": 1, "unitprice": 2000, "amount": 2000},
+                    ]
+                }
+            ]
+        }
+    ],
+    "stat": {"price": 4590},
+}
+
+
+async def test_cart_reads_the_id_from_objectid(server, monkeypatch):
+    import httpx
+
+    async def fake_shop(path, params=None):
+        return CART_WITH_OBJECTID
+
+    monkeypatch.setattr(server, "_shop", fake_shop)
+    server._client = _index(lambda request: httpx.Response(200, json={"results": [None, None, None]}))
+    cart = await server.get_cart()
+    assert [line["product_id"] for line in cart["lines"]] == [85465, 111, 222]
+    assert all(pid is not None for pid in [line["product_id"] for line in cart["lines"]])
+
+
+async def test_add_to_cart_adds_to_an_existing_line_found_by_objectid(server, monkeypatch):
+    seen = {}
+
+    async def fake_shop(path, params=None):
+        if path == "v6/Cart":
+            return CART_WITH_OBJECTID
+        seen["params"] = params
+        return {"productId": params["productId"], "productAmount": params["count"], "unitCount": 1, "sum": 100}
+
+    monkeypatch.setattr(server, "_shop", fake_shop)
+    result = await server.add_to_cart(85465, 1)
+    assert result["quantity"] == 3  # 2 already in the cart + 1
+
+
 async def test_cart_still_works_when_the_index_is_down(cart_server):
     import httpx
 
@@ -318,3 +363,139 @@ def test_member_offer_percent_is_computed_when_the_shop_gives_none(server):
 def test_products_not_on_offer_have_no_mix_offer(server):
     product = server._product(_hit(is_multibuy=True, multibuy_offer_description="Mix 4 for 10,00", isInOffer=[1651]))
     assert product["mix_offer"] is None
+
+
+# Real index hits for store 1666, trimmed to what matters. Prices are in øre.
+HERE = [1666]
+
+
+def _lookup(server, results):
+    """Serve `results` as the index's answer and remember what was asked."""
+    import httpx
+
+    server.asked = []
+
+    def handler(request):
+        server.asked.append(request.read().decode())
+        return httpx.Response(200, json={"results": results})
+
+    server._client = _index(handler)
+
+
+def _in_store(**fields):
+    return _hit(inStockStore=HERE, isInAssortmentIn=HERE, **fields)
+
+
+async def test_get_products_finds_known_ids_and_flags_the_unknown_one(server):
+    _lookup(server, [_in_store(id=85465, name="Havregryn", brand="Salling", netcontent="1 kg"), None,
+                     _in_store(id=3, name="Ananas")])
+    result = await server.get_products(["85465", "999999999", "3"])
+    assert [p["product_id"] for p in result] == [85465, 999999999, 3]  # one id type everywhere
+    assert result[1] == {"product_id": 999999999, "found": False}
+    assert (result[0]["name"], result[0]["brand"], result[0]["size"]) == ("Havregryn", "Salling", "1 kg")
+    assert result[0]["found"] is True and result[0]["offer"] is None
+
+
+async def test_price_cut_shows_the_reduced_price_and_nothing_is_required(server):
+    _lookup(server, [_in_store(id=40258, name="Frilandsæg", price=4095, sales_price=2500,
+                               multibuy_offer_description="Skarp pris", isInOffer=HERE,
+                               unitOfMeasurePrice=410, unitOfMeasurePriceUnits="Stk.")])
+    egg = (await server.get_products(["40258"]))[0]
+    assert (egg["price"], egg["regular_price"], egg["saving"], egg["saving_percent"]) == (25.0, 40.95, 15.95, 39)
+    assert egg["offer"] == {"label": "Skarp pris", "price": 25.0, "requires": None, "valid_to": None}
+    assert (egg["unit_price_per_kg_or_l"], egg["unit"]) == (4.1, "Stk.")  # per piece, so the unit is given
+
+
+async def test_member_offer_price_is_the_offer_price_with_its_end_date(server):
+    # A real yoghurt: 20.00 list, 15.00 shelf price, 10.00 for members until 13 November.
+    _lookup(server, [_in_store(id=19789, price=2000, sales_price=1500, isInOffer=HERE, cpOffer=True,
+                               cpOfferTitle="Yoggi yoghurt", cpOfferPrice=1000, cpOfferAmount=1,
+                               cpPercentDiscount=50, cpOfferFromDate="2026-10-30", cpOfferToDate="2026-11-13")])
+    yoghurt = (await server.get_products(["19789"]))[0]
+    assert yoghurt["price"] == 15.0  # what anyone pays; the member price is conditional
+    assert yoghurt["offer"] == {"label": "Yoggi yoghurt", "price": 10.0, "requires": "member", "valid_to": "2026-11-13"}
+    assert yoghurt["plus_offer"]["saving"] == 10.0
+
+
+async def test_multi_item_member_offer_gives_the_price_per_item(server):
+    _lookup(server, [_in_store(id=1, price=2095, sales_price=2095, isInOffer=HERE, cpOffer=True, cpOfferTitle="Scoop",
+                               cpOfferPrice=1800, cpOfferAmount=2, cpOriginalPrice=2095, cpOfferToDate="2026-10-30")])
+    offer = (await server.get_products(["1"]))[0]["offer"]
+    assert (offer["price"], offer["requires"], offer["valid_to"]) == (9.0, "member, buy 2", "2026-10-30")
+
+
+async def test_mix_offer_gives_the_price_each_and_the_amount_to_buy(server):
+    _lookup(server, [_in_store(id=18381, name="Bananer", price=275, sales_price=275, is_multibuy=True,
+                               multibuy_offer_description="Mix 10 for 25,00", isInOffer=HERE)])
+    bananas = (await server.get_products(["18381"]))[0]
+    assert bananas["price"] == 2.75
+    assert bananas["offer"] == {"label": "Mix 10 for 25,00", "price": 2.5, "requires": "buy 10", "valid_to": None}
+
+
+async def test_stock_and_range_are_for_this_store(server):
+    # A real beer that the store sells but does not have in stock, and a product outside its range.
+    _lookup(server, [_hit(id=39599, isInStock=1, inStockStore=[1651], isInAssortmentIn=HERE),
+                     _hit(id=70105, isInStock=1, inStockStore=HERE, isInAssortmentIn=[1651])])
+    unstocked, not_sold = await server.get_products([39599, 70105])
+    assert (unstocked["in_stock"], unstocked["sold_here"]) == (False, True)
+    assert (not_sold["in_stock"], not_sold["sold_here"]) == (True, False)
+
+
+def test_stock_falls_back_to_the_global_flag_when_the_store_list_is_missing(server):
+    assert server._product(_hit(isInStock=1))["in_stock"] is True
+    assert server._product(_hit(isInStock=0))["in_stock"] is False
+    assert server._product(_hit(isInStock=1, inStockStore=[1651]))["in_stock"] is False
+
+
+async def test_more_than_fifty_ids_is_refused_not_silently_cut(server):
+    _lookup(server, [])
+    with pytest.raises(ToolError, match="at most 50"):
+        await server.get_products([str(i) for i in range(51)])
+    assert not server.asked
+
+
+async def test_fifty_ids_are_accepted(server):
+    _lookup(server, [None] * 50)
+    assert len(await server.get_products([str(i) for i in range(50)])) == 50
+
+
+async def test_numbers_are_accepted_as_ids_even_through_the_tool_schema(server):
+    _lookup(server, [_in_store(id=85465, name="Havregryn")])
+    await server.mcp.call_tool("get_products", {"product_ids": [85465]})  # schema validation, not just the function
+    assert '"objectID":"85465"' in server.asked[0].replace(" ", "")
+
+
+async def test_an_unreachable_index_gives_a_short_message_not_a_crash(server):
+    import httpx
+
+    server._client = _index(lambda request: httpx.Response(503))
+    with pytest.raises(ToolError, match="try again"):
+        await server.get_products(["1"])
+
+
+async def test_get_products_with_no_ids_skips_the_request(server):
+    _lookup(server, [])
+    assert await server.get_products([]) == []
+    assert not server.asked
+
+
+async def test_cart_with_objectid_only_products_gets_brand_and_size(cart_server):
+    """The real cart has no `id` on its products, only objectID; details must still be found."""
+    import httpx
+
+    cart_server_data = {
+        "lines": [{"lines": [{"orderlines": [
+            {"product": {"objectID": 85465, "name": "Finvalsede havregryn"}, "quantity": 2, "unitprice": 795, "amount": 1590},
+        ]}]}],
+        "stat": {"price": 1590},
+    }
+
+    async def fake_shop(path, params=None):
+        return cart_server_data
+
+    cart_server._shop = fake_shop
+    cart_server._client = _index(
+        lambda request: httpx.Response(200, json={"results": [{"brand": "Salling", "netcontent": "1 kg"}]})
+    )
+    line = (await cart_server.get_cart())["lines"][0]
+    assert (line["product_id"], line["brand"], line["size"]) == (85465, "Salling", "1 kg")
