@@ -236,9 +236,19 @@ def _saving(full: int, paid: int) -> tuple[float | None, int | None]:
     return _kr(full - paid), round(100 * (full - paid) / full)
 
 
+def _pid(value):
+    """Product ids as numbers where they are numeric, so every tool returns the same type."""
+    text = str(value).strip()
+    return int(text) if text.isdigit() else value
+
+
+def _in_list(hit: dict, field: str) -> bool:
+    return str(STORE_ID) in {str(store) for store in hit.get(field) or []}
+
+
 def _on_offer_here(hit: dict) -> bool:
     """The shop's own definition: the product's isInOffer list contains this store."""
-    return str(STORE_ID) in {str(store) for store in hit.get("isInOffer") or []}
+    return _in_list(hit, "isInOffer")
 
 
 def _product(hit: dict) -> dict:
@@ -280,7 +290,7 @@ def _product(hit: dict) -> dict:
             "saving_percent": mix_percent,
         }
     return {
-        "product_id": hit.get("id") or hit.get("objectID"),
+        "product_id": _pid(hit.get("id") or hit.get("objectID")),
         "name": hit.get("name"),
         "brand": hit.get("brand"),
         "size": hit.get("netcontent"),
@@ -294,17 +304,35 @@ def _product(hit: dict) -> dict:
         "offer": label if on_offer else None,
         "mix_offer": mix_offer,
         "plus_offer": plus_offer,
-        "in_stock": bool(hit.get("isInStock")),
+        # Stock is per store; the global isInStock flag is only a fallback when the list is missing.
+        "in_stock": _in_list(hit, "inStockStore") if "inStockStore" in hit else bool(hit.get("isInStock")),
         "category": hit.get("deepestCategoryPath"),
     }
+
+
+def _best_offer(product: dict) -> dict | None:
+    """The cheapest way to buy one item on offer, and what it takes to get that price."""
+    if not product["on_offer"]:
+        return None
+    plus, mix = product["plus_offer"], product["mix_offer"]
+    options = []  # (price per item, what it requires, valid to)
+    if product["regular_price"]:  # an ordinary price cut: nothing required
+        options.append((product["price"], None, None))
+    if plus:
+        amount = plus["amount"]
+        requires = "member" if amount == 1 else f"member, buy {amount}"
+        options.append((round(plus["price"] / amount, 2), requires, plus["valid_to"]))
+    if mix:
+        options.append((mix["price_each"], f"buy {mix['amount']}", None))
+    if not options:
+        options.append((product["price"], None, None))
+    price, requires, valid_to = min(options, key=lambda o: (o[0] is None, o[0], o[1] is not None))
+    return {"label": product["offer"], "price": price, "requires": requires, "valid_to": valid_to}
 
 
 def _product_summary(hit: dict) -> dict:
     """Price, stock and offer for a product already known by id, for get_products."""
     p = _product(hit)
-    offer = None
-    if p["on_offer"]:
-        offer = {"price": p["price"], "valid_to": hit.get("cpOfferToDate") or None}
     return {
         "product_id": p["product_id"],
         "found": True,
@@ -312,9 +340,16 @@ def _product_summary(hit: dict) -> dict:
         "brand": p["brand"],
         "size": p["size"],
         "price": p["price"],
+        "regular_price": p["regular_price"],
+        "saving": p["saving"],
+        "saving_percent": p["saving_percent"],
         "unit_price_per_kg_or_l": p["unit_price"],
+        "unit": p["unit"],
         "in_stock": p["in_stock"],
-        "offer": offer,
+        "sold_here": _in_list(hit, "isInAssortmentIn"),
+        "offer": _best_offer(p),
+        "plus_offer": p["plus_offer"],
+        "mix_offer": p["mix_offer"],
     }
 
 
@@ -516,29 +551,40 @@ async def search_products(
     return [_product(h) for h in resp.json().get("hits", [])]
 
 
+MAX_PRODUCT_IDS = 50
+
+
 @mcp.tool()
-async def get_products(product_ids: list[str]) -> list[dict]:
+async def get_products(product_ids: list[str | int]) -> list[dict]:
     """Look up known product ids at once (for example BilkaToGo ids already stored against a Grocy
-    product): current price, stock and offer, without a text search. At most 50 ids per call; an id
-    no longer in the catalogue comes back as {"product_id": ..., "found": false} instead of failing
-    the whole call."""
-    ids = [str(i) for i in product_ids][:50]
+    product), without a text search. At most 50 ids per call. For each id, in the order given:
+    `price` is what one item costs now (`regular_price`, `saving` and `saving_percent` show a price
+    cut), `in_stock` and `sold_here` are for this store (a product the store does not sell has
+    sold_here false and cannot be ordered), and `offer` is the best deal for one item: its `price`,
+    what it `requires` (null, "member", or "buy N") and `valid_to`. `plus_offer` and `mix_offer` have
+    the details. An id that no longer exists comes back as {"product_id": ..., "found": false}."""
+    ids = [str(i).strip() for i in product_ids]
+    if len(ids) > MAX_PRODUCT_IDS:
+        raise ToolError(f"Send at most {MAX_PRODUCT_IDS} product ids per call (got {len(ids)}); split the list.")
     if not ids:
         return []
-    resp = await _client.post(
-        ALGOLIA_OBJECTS_URL,
-        headers=ALGOLIA_HEADERS,
-        json={
-            "requests": [
-                {"indexName": PRODUCT_INDEX, "objectID": object_id, "attributesToRetrieve": ["*"]}
-                for object_id in ids
-            ]
-        },
-    )
-    resp.raise_for_status()
-    results = resp.json().get("results", [])
+    try:
+        resp = await _client.post(
+            ALGOLIA_OBJECTS_URL,
+            headers=ALGOLIA_HEADERS,
+            json={
+                "requests": [
+                    {"indexName": PRODUCT_INDEX, "objectID": object_id, "attributesToRetrieve": ["*"]}
+                    for object_id in ids
+                ]
+            },
+        )
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+    except (httpx.HTTPError, ValueError) as exc:
+        raise ToolError("The product lookup is unavailable right now; try again in a moment.") from exc
     return [
-        _product_summary(hit) if hit else {"product_id": object_id, "found": False}
+        _product_summary(hit) if hit else {"product_id": _pid(object_id), "found": False}
         for object_id, hit in zip(ids, results)
     ]
 
