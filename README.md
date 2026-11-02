@@ -182,8 +182,8 @@ volume. After that you can remove the email/password (or token) secrets from `co
 token or credentials again. The password, if you configure one, sits in `secrets/`; use a
 password you don't reuse elsewhere.
 
-Tools: search_products, get_cart, set_cart_quantity, add_to_cart, clear_cart, list_orders,
-get_order, get_favourites, get_delivery_date. No checkout.
+Tools: search_products, get_products, get_cart, set_cart_quantity, add_to_cart, clear_cart,
+list_orders, get_order, get_favourites, get_delivery_date. No checkout.
 
 Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --python 3.12 server.py`
 

@@ -158,6 +158,51 @@ async def test_cart_lines_include_size_and_brand(cart_server):
     assert seen["body"].count("objectID") == 2  # one batched request for the whole cart
 
 
+CART_WITH_OBJECTID = {
+    "lines": [
+        {
+            "lines": [
+                {
+                    "orderlines": [
+                        {"product": {"objectID": 85465, "name": "Havregryn"}, "quantity": 2, "unitprice": 795, "amount": 1590},
+                        {"product": {"objectID": 111, "name": "Mælk"}, "quantity": 1, "unitprice": 1000, "amount": 1000},
+                        {"product": {"objectID": 222, "name": "Smør"}, "quantity": 1, "unitprice": 2000, "amount": 2000},
+                    ]
+                }
+            ]
+        }
+    ],
+    "stat": {"price": 4590},
+}
+
+
+async def test_cart_reads_the_id_from_objectid(server, monkeypatch):
+    import httpx
+
+    async def fake_shop(path, params=None):
+        return CART_WITH_OBJECTID
+
+    monkeypatch.setattr(server, "_shop", fake_shop)
+    server._client = _index(lambda request: httpx.Response(200, json={"results": [None, None, None]}))
+    cart = await server.get_cart()
+    assert [line["product_id"] for line in cart["lines"]] == [85465, 111, 222]
+    assert all(pid is not None for pid in [line["product_id"] for line in cart["lines"]])
+
+
+async def test_add_to_cart_adds_to_an_existing_line_found_by_objectid(server, monkeypatch):
+    seen = {}
+
+    async def fake_shop(path, params=None):
+        if path == "v6/Cart":
+            return CART_WITH_OBJECTID
+        seen["params"] = params
+        return {"productId": params["productId"], "productAmount": params["count"], "unitCount": 1, "sum": 100}
+
+    monkeypatch.setattr(server, "_shop", fake_shop)
+    result = await server.add_to_cart(85465, 1)
+    assert result["quantity"] == 3  # 2 already in the cart + 1
+
+
 async def test_cart_still_works_when_the_index_is_down(cart_server):
     import httpx
 
@@ -318,3 +363,62 @@ def test_member_offer_percent_is_computed_when_the_shop_gives_none(server):
 def test_products_not_on_offer_have_no_mix_offer(server):
     product = server._product(_hit(is_multibuy=True, multibuy_offer_description="Mix 4 for 10,00", isInOffer=[1651]))
     assert product["mix_offer"] is None
+
+
+async def test_get_products_looks_up_known_ids_and_flags_the_unknown_one(server):
+    import httpx
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    _hit(id="1", name="Havregryn", brand="Salling", netcontent="1 kg"),
+                    None,
+                    _hit(
+                        id="3", name="Ananas", price=2800, sales_price=2200, isInOffer=STORES,
+                        cpOfferToDate="2026-11-06",
+                    ),
+                ]
+            },
+        )
+
+    server._client = _index(handler)
+    result = await server.get_products(["1", "2", "3"])
+    assert [p["product_id"] for p in result] == ["1", "2", "3"]
+    assert result[1] == {"product_id": "2", "found": False}
+    assert (result[0]["name"], result[0]["brand"], result[0]["size"]) == ("Havregryn", "Salling", "1 kg")
+    assert result[0]["found"] is True and result[0]["offer"] is None
+
+
+async def test_get_products_shows_the_offer_price_not_the_list_price(server):
+    import httpx
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={"results": [_hit(price=2800, sales_price=2200, isInOffer=STORES, cpOfferToDate="2026-11-06")]},
+        )
+
+    server._client = _index(handler)
+    result = await server.get_products(["1"])
+    assert result[0]["price"] == 22.0
+    assert result[0]["offer"] == {"price": 22.0, "valid_to": "2026-11-06"}
+
+
+async def test_get_products_is_capped_at_fifty_ids(server, monkeypatch):
+    import httpx
+
+    seen = {}
+
+    def handler(request):
+        seen["body"] = request.read().decode()
+        return httpx.Response(200, json={"results": [None] * 50})
+
+    server._client = _index(handler)
+    await server.get_products([str(i) for i in range(75)])
+    assert seen["body"].count("objectID") == 50
+
+
+async def test_get_products_with_no_ids_skips_the_request(server):
+    assert await server.get_products([]) == []

@@ -299,6 +299,25 @@ def _product(hit: dict) -> dict:
     }
 
 
+def _product_summary(hit: dict) -> dict:
+    """Price, stock and offer for a product already known by id, for get_products."""
+    p = _product(hit)
+    offer = None
+    if p["on_offer"]:
+        offer = {"price": p["price"], "valid_to": hit.get("cpOfferToDate") or None}
+    return {
+        "product_id": p["product_id"],
+        "found": True,
+        "name": p["name"],
+        "brand": p["brand"],
+        "size": p["size"],
+        "price": p["price"],
+        "unit_price_per_kg_or_l": p["unit_price"],
+        "in_stock": p["in_stock"],
+        "offer": offer,
+    }
+
+
 def _order(order: dict) -> dict:
     """Order summary without personal data (name, address, door/pickup codes, coordinates)."""
     interval = order.get("deliveryInterval") or {}
@@ -449,7 +468,7 @@ def _cart(data: dict) -> dict:
                 p = ol.get("product", {})
                 lines.append(
                     {
-                        "product_id": p.get("id"),
+                        "product_id": p.get("objectID") or p.get("id"),
                         "name": p.get("name"),
                         "quantity": ol.get("quantity"),
                         "unit_price": _kr(ol.get("unitprice")),
@@ -495,6 +514,33 @@ async def search_products(
     )
     resp.raise_for_status()
     return [_product(h) for h in resp.json().get("hits", [])]
+
+
+@mcp.tool()
+async def get_products(product_ids: list[str]) -> list[dict]:
+    """Look up known product ids at once (for example BilkaToGo ids already stored against a Grocy
+    product): current price, stock and offer, without a text search. At most 50 ids per call; an id
+    no longer in the catalogue comes back as {"product_id": ..., "found": false} instead of failing
+    the whole call."""
+    ids = [str(i) for i in product_ids][:50]
+    if not ids:
+        return []
+    resp = await _client.post(
+        ALGOLIA_OBJECTS_URL,
+        headers=ALGOLIA_HEADERS,
+        json={
+            "requests": [
+                {"indexName": PRODUCT_INDEX, "objectID": object_id, "attributesToRetrieve": ["*"]}
+                for object_id in ids
+            ]
+        },
+    )
+    resp.raise_for_status()
+    results = resp.json().get("results", [])
+    return [
+        _product_summary(hit) if hit else {"product_id": object_id, "found": False}
+        for object_id, hit in zip(ids, results)
+    ]
 
 
 @mcp.tool()
