@@ -1,11 +1,13 @@
 {
  "order": {
   "stat": {
-   "price": 6890,
-   "prod_price": 2490,
+   "price": 7795,
+   "prod_price": 3395,
    "promo": 250,
    "packing": 3900,
    "packaging_price": 500,
+   "has_replacements": true,
+   "prod_amount": 3,
    "specifications": [
     {
      "text": "Pakkeservice",
@@ -49,10 +51,10 @@
    "date": "2026-10-31",
    "time": "14:00:00"
   },
-  "price": 6890,
+  "price": 7795,
   "status": "Faktureret",
   "routeplanned": false,
-  "totalProductAmount": 5,
+  "totalProductAmount": 3,
   "lines": [
    {
     "headline": "Services",
@@ -200,8 +202,8 @@
       "orderlines": [
        {
         "quantity": 2,
-        "amount": 0,
-        "net_unitprice": 0,
+        "amount": 2000,
+        "net_unitprice": 1000,
         "unitprice": 1000,
         "sort": 1,
         "product": {
@@ -244,7 +246,7 @@
          "offerMaxDescription": "",
          "ageCode": 0
         },
-        "unavailable_reason": "Udgået",
+        "unavailable_reason": "",
         "discounts": [],
         "deposits": [],
         "replacement": null,
@@ -252,7 +254,7 @@
         "pickedCountryOfOrigin": "",
         "comment": "",
         "strikethrough": true,
-        "tagline": "Mangler",
+        "tagline": "udsolgt",
         "children": []
        }
       ],
@@ -268,8 +270,8 @@
       "orderlines": [
        {
         "quantity": 1,
-        "amount": 0,
-        "net_unitprice": 0,
+        "amount": 1800,
+        "net_unitprice": 1800,
         "unitprice": 1800,
         "sort": 1,
         "product": {
@@ -312,7 +314,7 @@
          "offerMaxDescription": "",
          "ageCode": 0
         },
-        "unavailable_reason": "Erstattet",
+        "unavailable_reason": "",
         "discounts": [],
         "deposits": [],
         "replacement": {
@@ -508,6 +510,68 @@
        }
       ],
       "discounts": []
+     },
+     {
+      "orderlines": [
+       {
+        "quantity": 2,
+        "amount": 2400,
+        "net_unitprice": 1200,
+        "unitprice": 1200,
+        "sort": 1,
+        "product": {
+         "objectID": 900015,
+         "erpProductID": "900015-EA",
+         "name": "Majskiks",
+         "link": "",
+         "article": "900015",
+         "price": 1200,
+         "brand": "Salling",
+         "subBrand": "",
+         "countryOfOrigin": [],
+         "units": 104,
+         "unitsOfMeasure": "g",
+         "unitsOfMeasurePrice": 0,
+         "unitsOfMeasureOfferPrice": 0,
+         "unitsOfMeasurePriceUnit": "",
+         "properties": [],
+         "attributes": [],
+         "productType": "",
+         "multipromo": 0,
+         "imageGUIDs": {},
+         "categories": {
+          "lvl0": [
+           "Brød og kager"
+          ],
+          "lvl1": [
+           "Brød og kager > Kiks"
+          ],
+          "lvl2": []
+         },
+         "blockedByHoliday": false,
+         "msg": "",
+         "cpOffer": false,
+         "cpOfferPrice": null,
+         "cpOfferAmount": 0,
+         "cpOfferId": 0,
+         "cpOfferMsg": "",
+         "offerMax": 0,
+         "offerMaxDescription": "",
+         "ageCode": 0
+        },
+        "unavailable_reason": "",
+        "discounts": [],
+        "deposits": [],
+        "replacement": null,
+        "returns": [],
+        "pickedCountryOfOrigin": "",
+        "comment": "",
+        "strikethrough": true,
+        "tagline": "udsolgt",
+        "children": []
+       }
+      ],
+      "discounts": []
      }
     ]
    },
@@ -596,13 +660,10 @@
   "payments": [
    {
     "providerId": "nets",
-    "amount": 6890
+    "amount": 7795
    }
   ],
-  "transact": "REDACTED-TRANSACTION",
-  "delivered": true,
-  "orderedPrice": 9690,
-  "packedPrice": 6890
+  "transact": "REDACTED-TRANSACTION"
  },
  "eid": -1,
  "uid": "REDACTED-USERID",

@@ -1,8 +1,8 @@
 {
  "order": {
   "stat": {
-   "price": 67839,
-   "prod_price": 63439,
+   "price": 12295,
+   "prod_price": 7895,
    "promo": 250,
    "packing": 3900,
    "packaging_price": 500,
@@ -15,7 +15,8 @@
      "text": "Emballage",
      "value": 500
     }
-   ]
+   ],
+   "price_no_promo": 8145
   },
   "orderId": "100000000001",
   "deliveryDate": "2026-11-01",
@@ -49,7 +50,7 @@
    "date": "2026-10-31",
    "time": "14:00:00"
   },
-  "price": 67839,
+  "price": 12295,
   "status": "Bestilt",
   "routeplanned": false,
   "totalProductAmount": 13,
@@ -479,7 +480,7 @@
   "payments": [
    {
     "providerId": "nets",
-    "amount": 67839
+    "amount": 12295
    }
   ],
   "transact": "REDACTED-TRANSACTION"

@@ -11,13 +11,13 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 # Everything get_order may return. Anything else, at any level, is a leak.
 ORDER_KEYS = {
-    "order_id", "status", "ordered", "delivery_date", "delivery_from", "delivery_to", "delivered",
-    "home_delivery", "store", "item_count", "ordered_price", "packed_price", "products_total",
-    "offer_discount", "total", "items",
+    "order_id", "status", "ordered", "delivery_date", "delivery_from", "delivery_to", "home_delivery",
+    "store", "item_count", "lines_total", "products_total", "offer_discount", "total", "items",
 }
 LINE_KEYS = {
     "product_id", "name", "brand", "size", "category", "section", "quantity", "unit_price", "line_total",
-    "offer", "plus_offer", "unavailable_reason", "replacement", "returns", "comment", "is_service",
+    "delivered", "delivered_quantity", "delivered_total", "offer", "plus_offer", "unavailable_reason",
+    "replacement", "returns", "comment", "is_service",
 }
 RELATED_KEYS = {"product_id", "name", "brand", "size", "quantity", "unit_price", "line_total", "reason"}
 FORBIDDEN_KEYS = {
@@ -104,20 +104,31 @@ async def test_summary_of_an_ordered_order(server):
     assert (order["order_id"], order["status"], order["ordered"]) == ("100000000001", "Bestilt", "2026-10-31 14:00:00")
     assert (order["delivery_date"], order["delivery_from"], order["delivery_to"]) == ("2026-11-01", "10:00:00", "12:00:00")
     assert (order["store"], order["home_delivery"], order["item_count"]) == ("Bilka Testby", False, 13)
-    assert (order["total"], order["products_total"], order["offer_discount"]) == (678.39, 634.39, 2.5)
+    assert (order["total"], order["products_total"], order["offer_discount"]) == (122.95, 78.95, 2.5)
+    assert order["lines_total"] == 122.95  # nothing was struck, so the order is as placed
+    assert all(line["delivered"] and line["delivered_total"] == line["line_total"] for line in order["items"])
     assert "items_preview" not in order
 
 
-# ---- the invoiced order: missing, replaced and returned lines --------------------------------------
-async def test_a_missing_line_shows_why(server):
+# ---- the invoiced order: lines the shop could not deliver ------------------------------------------
+async def test_a_sold_out_line_is_kept_as_ordered_but_not_delivered(server):
     milk = _by_name(await _order(server, "order_invoiced"))["Letmælk"]
-    assert (milk["quantity"], milk["line_total"], milk["unavailable_reason"]) == (2, 0.0, "Udgået")
+    # The shop keeps the ordered quantity and amount and only strikes the line through.
+    assert (milk["quantity"], milk["unit_price"], milk["line_total"]) == (2, 10.0, 20.0)
+    assert (milk["delivered"], milk["delivered_quantity"], milk["delivered_total"]) == (False, 0, 0.0)
+    assert milk["unavailable_reason"] == "udsolgt"  # the shop's tagline
     assert milk["replacement"] is None
+
+
+async def test_a_delivered_line_is_delivered_in_full(server):
+    pasta = _by_name(await _order(server, "order_invoiced"))["Spaghetti"]
+    assert (pasta["delivered"], pasta["delivered_quantity"], pasta["delivered_total"]) == (True, 1, 4.95)
+    assert pasta["unavailable_reason"] is None
 
 
 async def test_a_replaced_line_shows_what_came_instead(server):
     cola = _by_name(await _order(server, "order_invoiced"))["Cola"]
-    assert (cola["unavailable_reason"], cola["line_total"]) == ("Erstattet", 0.0)
+    assert (cola["delivered"], cola["delivered_total"], cola["unavailable_reason"]) == (False, 0.0, "Erstattet med")
     assert cola["replacement"] == {
         "product_id": 900013, "name": "Pepsi", "brand": "Pepsi", "size": "1.5 l", "quantity": 1,
         "unit_price": 14.0, "line_total": 14.0, "reason": None,
@@ -134,9 +145,25 @@ async def test_returns_and_comment_are_shown(server):
 
 async def test_summary_of_an_invoiced_order(server):
     order = await _order(server, "order_invoiced")
-    assert (order["status"], order["delivered"]) == ("Faktureret", True)
-    assert (order["ordered_price"], order["packed_price"], order["total"]) == (96.9, 68.9, 68.9)
-    assert order["item_count"] == 5
+    assert (order["status"], order["total"], order["products_total"], order["item_count"]) == ("Faktureret", 77.95, 33.95, 3)
+    assert order["lines_total"] == 125.95  # what was originally ordered, struck lines included
+
+
+def _delivered(order):
+    """What was actually delivered: the delivered lines plus the replacements that took the place of others."""
+    replacements = [line["replacement"] for line in order["items"] if line["replacement"]]
+    money = sum(line["delivered_total"] for line in order["items"]) + sum(r["line_total"] for r in replacements)
+    units = sum(line["delivered_quantity"] for line in order["items"] if not line["is_service"])
+    return round(money, 2), units + sum(r["quantity"] for r in replacements)
+
+
+@pytest.mark.parametrize("name", ["order_ordered", "order_invoiced"])
+async def test_delivered_lines_add_up_to_the_invoiced_total_and_item_count(server, name):
+    # The same two sums hold on a real invoiced order: its lines add up to 678.39 as ordered, 647.44 as
+    # delivered (the invoiced total), and 37 units as ordered against the invoiced 34.
+    order = await _order(server, name)
+    money, units = _delivered(order)
+    assert (money, units) == (order["total"], order["item_count"])
 
 
 # ---- privacy ---------------------------------------------------------------------------------------
