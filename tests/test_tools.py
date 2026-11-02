@@ -399,11 +399,14 @@ async def test_get_products_finds_known_ids_and_flags_the_unknown_one(server):
 async def test_price_cut_shows_the_reduced_price_and_nothing_is_required(server):
     _lookup(server, [_in_store(id=40258, name="Frilandsæg", price=4095, sales_price=2500,
                                multibuy_offer_description="Skarp pris", isInOffer=HERE,
-                               unitOfMeasurePrice=410, unitOfMeasurePriceUnits="Stk.")])
+                               unitOfMeasurePrice=410, unitOfMeasurePriceUnits="Stk.",
+                               storeData={"1666": {"unitsOfMeasurePrice": 410, "unitsOfMeasureShowPrice": 250,
+                                                   "unitsOfMeasurePriceUnit": "Stk."}})])
     egg = (await server.get_products(["40258"]))[0]
     assert (egg["price"], egg["regular_price"], egg["saving"], egg["saving_percent"]) == (25.0, 40.95, 15.95, 39)
     assert egg["offer"] == {"label": "Skarp pris", "price": 25.0, "requires": None, "valid_to": None}
-    assert (egg["unit_price_per_kg_or_l"], egg["unit"]) == (4.1, "Stk.")  # per piece, so the unit is given
+    # Per piece at the current price (25.00 / 10), not at the regular price (40.95 / 10 = 4.10).
+    assert (egg["unit_price_per_kg_or_l"], egg["unit"]) == (2.5, "Stk.")
 
 
 async def test_member_offer_price_is_the_offer_price_with_its_end_date(server):
@@ -438,7 +441,8 @@ async def test_stock_and_range_are_for_this_store(server):
                      _hit(id=70105, isInStock=1, inStockStore=HERE, isInAssortmentIn=[1651])])
     unstocked, not_sold = await server.get_products([39599, 70105])
     assert (unstocked["in_stock"], unstocked["sold_here"]) == (False, True)
-    assert (not_sold["in_stock"], not_sold["sold_here"]) == (True, False)
+    # Shelves may hold it, but a product the store does not sell cannot be had.
+    assert (not_sold["in_stock"], not_sold["sold_here"]) == (False, False)
 
 
 def test_stock_falls_back_to_the_global_flag_when_the_store_list_is_missing(server):
@@ -499,3 +503,58 @@ async def test_cart_with_objectid_only_products_gets_brand_and_size(cart_server)
     )
     line = (await cart_server.get_cart())["lines"][0]
     assert (line["product_id"], line["brand"], line["size"]) == (85465, "Salling", "1 kg")
+
+
+# ---- findings from the live test report --------------------------------------------------------
+def test_unit_price_follows_the_current_price_of_this_store(server):
+    eggs = server._product(_hit(price=4095, sales_price=2500, unitOfMeasurePrice=410, unitOfMeasurePriceUnits="Stk.",
+                                storeData={"1666": {"unitsOfMeasurePrice": 410, "unitsOfMeasureShowPrice": 250,
+                                                    "unitsOfMeasurePriceUnit": "Stk."},
+                                           "1651": {"unitsOfMeasureShowPrice": 999}}))
+    assert (eggs["unit_price"], eggs["unit"]) == (2.5, "Stk.")  # not 4.10, and not another store's
+
+
+def test_unit_price_falls_back_to_the_top_level_field_without_store_data(server):
+    oats = server._product(_hit(unitOfMeasurePrice=795, unitOfMeasurePriceUnits="Kg."))
+    assert (oats["unit_price"], oats["unit"]) == (7.95, "Kg.")
+
+
+async def test_cart_price_per_unit_uses_the_store_price_and_asks_only_for_this_store(cart_server):
+    import httpx
+
+    asked = {}
+
+    def handler(request):
+        asked["body"] = request.read().decode()
+        hit = {"brand": "Salling", "netcontent": "10 stk", "unitOfMeasurePrice": 410,
+               "storeData": {"1666": {"unitsOfMeasureShowPrice": 250, "unitsOfMeasurePriceUnit": "Stk."}}}
+        return httpx.Response(200, json={"results": [None, hit]})
+
+    cart_server._client = _index(handler)
+    line = (await cart_server.get_cart())["lines"][0]
+    assert (line["price_per_unit"], line["unit"]) == (2.5, "Stk.")
+    assert "storeData.1666" in asked["body"]
+
+
+def test_an_empty_brand_is_null_everywhere(server):
+    assert server._product(_hit(brand=""))["brand"] is None
+
+
+async def test_changing_the_cart_reports_the_line_total_and_a_real_unit_price(server, monkeypatch):
+    async def fake_shop(path, params=None):
+        # The shop's productUnitPrice is the price of the whole line (3 x 7.95), and its id is a string.
+        return {"productId": "85465", "productAmount": 3, "productUnitPrice": 2385, "unitCount": 3, "sum": 5000}
+
+    monkeypatch.setattr(server, "_shop", fake_shop)
+    result = await server.set_cart_quantity(85465, 3)
+    assert result["product_id"] == 85465  # a number, as in every other tool
+    assert (result["quantity"], result["line_total"], result["unit_price"]) == (3, 23.85, 7.95)
+
+
+async def test_removing_a_line_has_no_unit_price(server, monkeypatch):
+    async def fake_shop(path, params=None):
+        return {"productId": "85465", "productAmount": 0, "productUnitPrice": 0, "unitCount": 0, "sum": 0}
+
+    monkeypatch.setattr(server, "_shop", fake_shop)
+    result = await server.set_cart_quantity(85465, 0)
+    assert (result["quantity"], result["line_total"], result["unit_price"]) == (0, 0.0, None)
