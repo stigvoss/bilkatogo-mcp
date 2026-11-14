@@ -193,6 +193,21 @@ async def test_a_gap_between_the_lines_and_the_invoice_is_reported(server):
     assert len(warnings) == 2
     assert "63.95 but the order total is 105.95 (difference 42.00)" in warnings[0]
     assert "2 but item_count is 5" in warnings[1]
+    assert all("fall short" in warning and "may be missing" in warning for warning in warnings)
+
+
+async def test_lines_that_exceed_the_invoice_are_not_described_as_missing_goods(server):
+    # The same substitute twice: the lines now add up to MORE than was invoiced. That is not missing goods.
+    data = _fixture("order_invoiced")
+    cola = data["order"]["lines"][3]["lines"][0]["orderlines"][0]
+    cola["children"] = cola["children"] * 2
+    _serve(server, data)
+    warnings = (await server.get_order("100000000002"))["warnings"]
+    assert len(warnings) == 2
+    assert "147.95 but the order total is 105.95 (the lines exceed it by 42.00)" in warnings[0]
+    assert "8 but item_count is 5: the lines exceed it" in warnings[1]
+    assert not any("missing" in warning for warning in warnings)
+    assert "counted twice" in warnings[0] and "counted twice" in warnings[1]
 
 
 async def test_children_of_a_line_that_was_not_struck_are_not_taken_for_substitutes(server):
@@ -300,3 +315,11 @@ async def test_a_substitute_with_extra_keys_leaks_nothing(server):
     order = await server.get_order("100000000002")
     assert "REDACTED-X" not in json.dumps(order) and "REDACTED-Y" not in json.dumps(order)
     assert all(set(line) == LINE_KEYS for line in order["items"])
+
+
+def test_the_warnings_description_does_not_claim_the_lines_are_incomplete(server):
+    import asyncio
+
+    description = {tool.name: tool.description for tool in asyncio.run(server.mcp.list_tools())}["get_order"]
+    assert "the lines are incomplete" not in description
+    assert "fall short" in description and "exceed" in description

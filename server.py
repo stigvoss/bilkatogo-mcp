@@ -486,22 +486,35 @@ def _order_items(order: dict) -> list[dict]:
 
 
 def _order_warnings(order: dict, items: list[dict]) -> list[str]:
-    """Say so when the delivered lines do not add up to the invoice, so a gap is not taken for fact."""
+    """Say so when the delivered lines do not add up to the invoice, so a gap is not taken for fact.
+
+    The wording follows the direction: lines that fall short of the invoice may be missing goods (an
+    unknown substitute, say); lines that exceed it may count something twice or something that was not
+    delivered or charged.
+    """
     warnings = []
     total = order.get("price", (order.get("stat") or {}).get("price"))
     delivered = round(sum(item["delivered_total"] or 0 for item in items) * 100)
     if total is not None and abs(delivered - total) > 5:
-        warnings.append(
-            f"The delivered lines add up to {delivered / 100:.2f} but the order total is {total / 100:.2f} "
-            f"(difference {(total - delivered) / 100:.2f}): some delivered goods are missing from the lines."
-        )
+        head = f"The delivered lines add up to {delivered / 100:.2f} but the order total is {total / 100:.2f}"
+        if delivered < total:
+            warnings.append(
+                f"{head} (difference {(total - delivered) / 100:.2f}): the lines fall short of the invoice, "
+                "so some delivered goods may be missing from them."
+            )
+        else:
+            warnings.append(
+                f"{head} (the lines exceed it by {(delivered - total) / 100:.2f}): some lines may be counted "
+                "twice, or were not delivered or charged."
+            )
     count = order.get("totalProductAmount")
     units = sum(item["delivered_quantity"] or 0 for item in items if not item["is_service"])
     if count is not None and abs(units - count) > 1e-6:
-        warnings.append(
-            f"The delivered quantities add up to {units:g} but item_count is {count:g}: "
-            "some delivered goods are missing from the lines."
-        )
+        head = f"The delivered quantities add up to {units:g} but item_count is {count:g}"
+        if units < count:
+            warnings.append(f"{head}: the lines fall short, so some delivered goods may be missing from them.")
+        else:
+            warnings.append(f"{head}: the lines exceed it, so some may be counted twice or were not delivered.")
     return warnings
 
 
@@ -771,7 +784,8 @@ async def get_order(order_id: str | int) -> dict:
     original's `replacement` summarises it. Its quantity and price differ from the original's, and it
     is what arrived. Over ALL lines, `delivered_total` adds up to `total` and `delivered_quantity`
     (without service lines) to `item_count`. `warnings` is empty unless that does not hold; then it
-    says by how much, and the lines are incomplete. `lines_total` is the sum of the lines as the shop
+    says by how much and which way: lines that fall short of the invoice may be missing delivered
+    goods, lines that exceed it may count something twice or something not delivered. `lines_total` is the sum of the lines as the shop
     lists them (substitutes left out): the order as placed where the shop keeps the undelivered
     lines (as on newer orders), and already the invoiced lines on older ones, so it need not equal the
     ordered price from list_orders. `offer_discount` is already deducted from the line prices. Names
