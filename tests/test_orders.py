@@ -12,12 +12,12 @@ FIXTURES = Path(__file__).parent / "fixtures"
 # Everything get_order may return. Anything else, at any level, is a leak.
 ORDER_KEYS = {
     "order_id", "status", "ordered", "delivery_date", "delivery_from", "delivery_to", "home_delivery",
-    "store", "item_count", "lines_total", "products_total", "offer_discount", "total", "items",
+    "store", "item_count", "lines_total", "products_total", "offer_discount", "total", "warnings", "items",
 }
 LINE_KEYS = {
     "product_id", "name", "brand", "size", "category", "section", "quantity", "unit_price", "line_total",
     "delivered", "delivered_quantity", "delivered_total", "offer", "plus_offer", "unavailable_reason",
-    "replacement", "returns", "comment", "is_service",
+    "replaces", "replacement", "returns", "comment", "is_service",
 }
 RELATED_KEYS = {"product_id", "name", "brand", "size", "quantity", "unit_price", "line_total", "reason"}
 FORBIDDEN_KEYS = {
@@ -126,13 +126,27 @@ async def test_a_delivered_line_is_delivered_in_full(server):
     assert pasta["unavailable_reason"] is None
 
 
-async def test_a_replaced_line_shows_what_came_instead(server):
-    cola = _by_name(await _order(server, "order_invoiced"))["Cola"]
-    assert (cola["delivered"], cola["delivered_total"], cola["unavailable_reason"]) == (False, 0.0, "Erstattet med")
+async def test_a_replaced_line_points_to_its_substitute_and_the_substitute_is_a_line_of_its_own(server):
+    order = await _order(server, "order_invoiced")
+    names = [line["name"] for line in order["items"]]
+    cola, pepsi = _by_name(order)["Cola"], _by_name(order)["Pepsi"]
+    assert names.index("Pepsi") == names.index("Cola") + 1  # right after the original
+    # The original: 2 ordered, none delivered, replaced (the shop's tagline is "erstattet").
+    assert (cola["quantity"], cola["line_total"], cola["delivered"], cola["delivered_total"]) == (2, 36.0, False, 0.0)
+    assert (cola["unavailable_reason"], cola["replaces"]) == ("erstattet", None)
     assert cola["replacement"] == {
-        "product_id": 900013, "name": "Pepsi", "brand": "Pepsi", "size": "1.5 l", "quantity": 1,
-        "unit_price": 14.0, "line_total": 14.0, "reason": None,
+        "product_id": 900013, "name": "Pepsi", "brand": "Pepsi", "size": "1.5 l", "quantity": 3,
+        "unit_price": 14.0, "line_total": 42.0, "reason": None,
     }
+    # What arrived: 3 other packs at another price, delivered in full.
+    assert (pepsi["quantity"], pepsi["unit_price"], pepsi["line_total"]) == (3, 14.0, 42.0)
+    assert (pepsi["delivered"], pepsi["delivered_quantity"], pepsi["delivered_total"]) == (True, 3, 42.0)
+    assert (pepsi["replaces"], pepsi["section"], pepsi["is_service"]) == (900012, "Drikkevarer", False)
+
+
+async def test_a_line_that_is_not_replaced_has_no_replaces_or_replacement(server):
+    pasta = _by_name(await _order(server, "order_invoiced"))["Spaghetti"]
+    assert (pasta["replaces"], pasta["replacement"]) == (None, None)
 
 
 async def test_returns_and_comment_are_shown(server):
@@ -145,25 +159,51 @@ async def test_returns_and_comment_are_shown(server):
 
 async def test_summary_of_an_invoiced_order(server):
     order = await _order(server, "order_invoiced")
-    assert (order["status"], order["total"], order["products_total"], order["item_count"]) == ("Faktureret", 77.95, 33.95, 3)
-    assert order["lines_total"] == 125.95  # what was originally ordered, struck lines included
+    assert (order["status"], order["total"], order["products_total"], order["item_count"]) == ("Faktureret", 105.95, 61.95, 5)
+    # The lines as the shop lists them: what was ordered, struck lines included, the substitute left out.
+    assert order["lines_total"] == 143.95
+    assert order["warnings"] == []
 
 
 def _delivered(order):
-    """What was actually delivered: the delivered lines plus the replacements that took the place of others."""
-    replacements = [line["replacement"] for line in order["items"] if line["replacement"]]
-    money = sum(line["delivered_total"] for line in order["items"]) + sum(r["line_total"] for r in replacements)
+    """What was actually delivered, from the lines alone: a substitute is a line of its own."""
+    money = round(sum(line["delivered_total"] for line in order["items"]), 2)
     units = sum(line["delivered_quantity"] for line in order["items"] if not line["is_service"])
-    return round(money, 2), units + sum(r["quantity"] for r in replacements)
+    return money, units
 
 
 @pytest.mark.parametrize("name", ["order_ordered", "order_invoiced"])
 async def test_delivered_lines_add_up_to_the_invoiced_total_and_item_count(server, name):
-    # The same two sums hold on a real invoiced order: its lines add up to 678.39 as ordered, 647.44 as
-    # delivered (the invoiced total), and 37 units as ordered against the invoiced 34.
+    # The same two sums hold on real invoiced orders: for one with a substitute, 650.00 + 53.90 = the invoiced
+    # 703.90, and 36 + 3 = the invoiced 39 units.
     order = await _order(server, name)
     money, units = _delivered(order)
     assert (money, units) == (order["total"], order["item_count"])
+    assert order["warnings"] == []
+
+
+async def test_a_gap_between_the_lines_and_the_invoice_is_reported(server):
+    # Lose the substitute, as the tool did before it knew where the shop puts it: the invoice still charges
+    # for it, so the lines fall short by its price and its 3 units.
+    data = _fixture("order_invoiced")
+    cola = data["order"]["lines"][3]["lines"][0]["orderlines"][0]
+    cola["children"] = []
+    _serve(server, data)
+    warnings = (await server.get_order("100000000002"))["warnings"]
+    assert len(warnings) == 2
+    assert "63.95 but the order total is 105.95 (difference 42.00)" in warnings[0]
+    assert "2 but item_count is 5" in warnings[1]
+
+
+async def test_children_of_a_line_that_was_not_struck_are_not_taken_for_substitutes(server):
+    data = _fixture("order_invoiced")
+    pasta = data["order"]["lines"][1]["lines"][0]["orderlines"][0]
+    pasta["children"] = [data["order"]["lines"][3]["lines"][0]["orderlines"][0]["children"][0]]
+    _serve(server, data)
+    order = await server.get_order("100000000002")
+    assert [line["name"] for line in order["items"]].count("Pepsi") == 1  # only the one under the struck Cola line
+    assert _by_name(order)["Spaghetti"]["replacement"] is None
+    assert order["warnings"] == []  # nothing counted twice
 
 
 # ---- privacy ---------------------------------------------------------------------------------------
@@ -202,6 +242,7 @@ async def test_only_whitelisted_fields_are_returned(server, name):
 async def test_a_replacement_in_an_unexpected_shape_still_leaks_nothing(server):
     data = _fixture("order_invoiced")
     cola = data["order"]["lines"][3]["lines"][0]["orderlines"][0]
+    cola["children"] = []  # the shop's own `replacement` key, in a shape that was never seen
     cola["replacement"] = {"product": {"objectID": 5, "name": "Pepsi", "doorcode": "REDACTED-X"}, "doorcode": "REDACTED-Y"}
     spaghetti = data["order"]["lines"][1]["lines"][0]["orderlines"][0]
     spaghetti["returns"] = ["Kunden fortrød REDACTED-PHONE"]
@@ -247,3 +288,15 @@ async def test_logged_out_answer_is_still_a_login_problem(server):
     with pytest.raises(server.AuthError):
         await server.get_order("100000000001")
     assert len(server.requests) == 2  # retried once with a fresh login
+
+
+async def test_a_substitute_with_extra_keys_leaks_nothing(server):
+    data = _fixture("order_invoiced")
+    child = data["order"]["lines"][3]["lines"][0]["orderlines"][0]["children"][0]
+    child["doorcode"] = "REDACTED-X"
+    child["product"]["doorcode"] = "REDACTED-Y"
+    child["comment"] = "REDACTED-Z"
+    _serve(server, data)
+    order = await server.get_order("100000000002")
+    assert "REDACTED-X" not in json.dumps(order) and "REDACTED-Y" not in json.dumps(order)
+    assert all(set(line) == LINE_KEYS for line in order["items"])
