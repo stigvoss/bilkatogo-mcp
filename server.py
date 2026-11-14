@@ -495,7 +495,8 @@ def _order_warnings(order: dict, items: list[dict]) -> list[str]:
     warnings = []
     total = order.get("price", (order.get("stat") or {}).get("price"))
     delivered = round(sum(item["delivered_total"] or 0 for item in items) * 100)
-    if total is not None and abs(delivered - total) > 5:
+    # Both sides are whole øre (the invoice, and the sum of the lines' charged amounts), so any difference counts.
+    if total is not None and delivered != total:
         head = f"The delivered lines add up to {delivered / 100:.2f} but the order total is {total / 100:.2f}"
         if delivered < total:
             warnings.append(

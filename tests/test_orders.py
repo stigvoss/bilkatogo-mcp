@@ -196,6 +196,18 @@ async def test_a_gap_between_the_lines_and_the_invoice_is_reported(server):
     assert all("fall short" in warning and "may be missing" in warning for warning in warnings)
 
 
+@pytest.mark.parametrize("difference_in_ore", [1, 3, 5, -1, -5])
+async def test_even_a_difference_of_a_few_øre_is_reported(server, difference_in_ore):
+    # The lines and the invoice are both whole øre, so a small gap is a real gap, not rounding.
+    data = _fixture("order_invoiced")
+    data["order"]["price"] += difference_in_ore
+    _serve(server, data)
+    warnings = (await server.get_order("100000000002"))["warnings"]
+    assert len(warnings) == 1
+    assert f"{abs(difference_in_ore) / 100:.2f}" in warnings[0]
+    assert ("fall short" if difference_in_ore > 0 else "exceed") in warnings[0]
+
+
 async def test_lines_that_exceed_the_invoice_are_not_described_as_missing_goods(server):
     # The same substitute twice: the lines now add up to MORE than was invoiced. That is not missing goods.
     data = _fixture("order_invoiced")
