@@ -1,13 +1,13 @@
 {
  "order": {
   "stat": {
-   "price": 7795,
-   "prod_price": 3395,
+   "price": 10595,
+   "prod_price": 6195,
    "promo": 250,
    "packing": 3900,
    "packaging_price": 500,
    "has_replacements": true,
-   "prod_amount": 3,
+   "prod_amount": 5,
    "specifications": [
     {
      "text": "Pakkeservice",
@@ -51,10 +51,10 @@
    "date": "2026-10-31",
    "time": "14:00:00"
   },
-  "price": 7795,
+  "price": 10595,
   "status": "Faktureret",
   "routeplanned": false,
-  "totalProductAmount": 3,
+  "totalProductAmount": 5,
   "lines": [
    {
     "headline": "Services",
@@ -269,8 +269,8 @@
      {
       "orderlines": [
        {
-        "quantity": 1,
-        "amount": 1800,
+        "quantity": 2,
+        "amount": 3600,
         "net_unitprice": 1800,
         "unitprice": 1800,
         "sort": 1,
@@ -317,69 +317,71 @@
         "unavailable_reason": "",
         "discounts": [],
         "deposits": [],
-        "replacement": {
-         "quantity": 1,
-         "amount": 1400,
-         "net_unitprice": 1400,
-         "unitprice": 1400,
-         "sort": 1,
-         "product": {
-          "objectID": 900013,
-          "erpProductID": "900013-EA",
-          "name": "Pepsi",
-          "link": "",
-          "article": "900013",
-          "price": 1400,
-          "brand": "Pepsi",
-          "subBrand": "",
-          "countryOfOrigin": [],
-          "units": 1.5,
-          "unitsOfMeasure": "l",
-          "unitsOfMeasurePrice": 0,
-          "unitsOfMeasureOfferPrice": 0,
-          "unitsOfMeasurePriceUnit": "",
-          "properties": [],
-          "attributes": [],
-          "productType": "",
-          "multipromo": 0,
-          "imageGUIDs": {},
-          "categories": {
-           "lvl0": [
-            "Drikkevarer"
-           ],
-           "lvl1": [
-            "Drikkevarer > Sodavand"
-           ],
-           "lvl2": []
-          },
-          "blockedByHoliday": false,
-          "msg": "",
-          "cpOffer": false,
-          "cpOfferPrice": null,
-          "cpOfferAmount": 0,
-          "cpOfferId": 0,
-          "cpOfferMsg": "",
-          "offerMax": 0,
-          "offerMaxDescription": "",
-          "ageCode": 0
-         },
-         "unavailable_reason": "",
-         "discounts": [],
-         "deposits": [],
-         "replacement": null,
-         "returns": [],
-         "pickedCountryOfOrigin": "",
-         "comment": "",
-         "strikethrough": null,
-         "tagline": null,
-         "children": []
-        },
+        "replacement": null,
         "returns": [],
         "pickedCountryOfOrigin": "",
         "comment": "",
         "strikethrough": true,
-        "tagline": "Erstattet med",
-        "children": []
+        "tagline": "erstattet",
+        "children": [
+         {
+          "quantity": 3,
+          "amount": 4200,
+          "net_unitprice": 1400,
+          "unitprice": 1400,
+          "sort": 1,
+          "product": {
+           "objectID": 900013,
+           "erpProductID": "900013-EA",
+           "name": "Pepsi",
+           "link": "",
+           "article": "900013",
+           "price": 1400,
+           "brand": "Pepsi",
+           "subBrand": "",
+           "countryOfOrigin": [],
+           "units": 1.5,
+           "unitsOfMeasure": "l",
+           "unitsOfMeasurePrice": 0,
+           "unitsOfMeasureOfferPrice": 0,
+           "unitsOfMeasurePriceUnit": "",
+           "properties": [],
+           "attributes": [],
+           "productType": "",
+           "multipromo": 0,
+           "imageGUIDs": {},
+           "categories": {
+            "lvl0": [
+             "Drikkevarer"
+            ],
+            "lvl1": [
+             "Drikkevarer > Sodavand"
+            ],
+            "lvl2": []
+           },
+           "blockedByHoliday": false,
+           "msg": "",
+           "cpOffer": false,
+           "cpOfferPrice": null,
+           "cpOfferAmount": 0,
+           "cpOfferId": 0,
+           "cpOfferMsg": "",
+           "offerMax": 0,
+           "offerMaxDescription": "",
+           "ageCode": 0
+          },
+          "unavailable_reason": "",
+          "discounts": [],
+          "deposits": [],
+          "replacement": null,
+          "returns": [],
+          "pickedCountryOfOrigin": "",
+          "comment": "",
+          "strikethrough": false,
+          "tagline": null,
+          "children": []
+         }
+        ]
        }
       ],
       "discounts": []
@@ -660,7 +662,7 @@
   "payments": [
    {
     "providerId": "nets",
-    "amount": 7795
+    "amount": 10595
    }
   ],
   "transact": "REDACTED-TRANSACTION"
