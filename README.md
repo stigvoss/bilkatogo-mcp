@@ -202,6 +202,19 @@ Local run without Docker: `BILKATOGO_LOGIN_TOKEN=… MCP_API_KEY=… uv run --py
   Actions; CI (`.github/workflows/ci.yml`) runs lint, tests and a container smoke test on each, and
   publishes the image to `ghcr.io/stigvoss/bilkatogo-mcp` from `main`.
 
+## Releases
+
+Every push to `main` publishes `latest` and `sha-<commit>`. To publish a version you can pin, push a tag
+`vMAJOR.MINOR.PATCH` (after CI has passed on that commit; the tag run repeats lint, tests and the container
+smoke test before it publishes):
+
+    git tag v1.2.0 && git push origin v1.2.0
+
+That gives the image the tags `1.2.0`, `1.2` and `1` (and `sha-<commit>`); `latest` is not moved by a tag. For
+`0.x` versions the major tag is left out. A pre-release such as `v1.2.3-rc.1` only gets its own version.
+Use the full version in `compose.yaml` to pin a release: `ghcr.io/stigvoss/bilkatogo-mcp:1.2.0`. A tag that is
+not valid semver publishes nothing under a version (the action only warns), so check the Actions run.
+
 ## Development
 
     uv sync                 # installs runtime + dev dependencies

@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
 
 permissions:
   contents: read
@@ -80,7 +81,7 @@ jobs:
   publish:
     name: Publish image to GHCR
     needs: [test, docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -98,9 +99,17 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
+          # `latest` follows main only. A release tag must not move it (it may point at an older commit), so
+          # the action's automatic `latest` for tags is off.
+          flavor: latest=false
+          # A tag vMAJOR.MINOR.PATCH gives MAJOR.MINOR.PATCH, MAJOR.MINOR and MAJOR; MAJOR is left out for
+          # 0.x, where a minor release may break. A pre-release (v1.2.3-rc.1) only gives its own full version.
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
